@@ -7,7 +7,9 @@ if (!class_exists('WPSettings')) {
 class BookSchedule {
 	protected static $instance = null;
 	protected static $runAdminInit = false;
+	protected static $runInit = false;
 	protected static $settings = null;
+	protected static $types = null;
 
 	protected static $imageTableFields = array(
 			'id' => 'smallint(5) NOT NULL AUTO_INCREMENT',
@@ -51,9 +53,34 @@ class BookSchedule {
 												'fields' => array(
 														'name' => array(
 															'title' => __('Type Name', 'book_schedule'),
-															'description' => __('The name of the type of item.',
+															'description' => __('The name of the type of '
+																	. 'item. Should be plural.',
 																	'book_schedule'),
 															'type' => 'text',
+														),
+														'slug' => array(
+															'title' => __('Slug Name', 'book_schedule'),
+															'description' => __('A URL-friendly name of the '
+																	. 'type of item. It should not contain '
+																	. 'spaces or capital letters. Changing '
+																	. 'the slug of existing item types will '
+																	. 'result in the loss of the current items '
+																	. 'of that type.', 'book_schedule'),
+															'type' => 'slug',
+														),
+														'singular' => array(
+															'title' => __('Singular Type Name',
+																	'book_schedule'),
+															'description' => __('The singular name of the '
+																	. 'type of item.', 'book_schedule'),
+															'type' => 'text',
+														),
+														'description' => array(
+															'title' => __('Type Description',
+																	'book_schedule'),
+															'description' => __('The description of the '
+																	. 'type.', 'book_schedule'),
+															'type' => 'longtext',
 														),
 														'type' => array(
 															'title' => __('Type of Item', 'book_schedule'),
@@ -76,6 +103,23 @@ class BookSchedule {
 		static::$settings = new WPSettings($options);
 	}
 
+	protected static function &instance() {
+		if (!static::$instance) {
+			static::$instance = new self();
+		}
+
+		return static::$instance;
+	}
+
+	protected static function &types() {
+		if (!static::$types) {
+			static::$types = static::$settings->item_types;
+		}
+
+		return static::$types;
+	}
+
+
 	/**
 	 * Function to initialise the plugin when in the dashboard
 	 */
@@ -90,13 +134,74 @@ class BookSchedule {
 		}
 	}
 
-	protected static function &instance() {
-		if (!static::$instance) {
-			static::$instance = new self();
-		}
+	/**
+	 * Function to initialise post types from the item types.
+	 */
+	static function init() {
+		if (!static::$runInit) {
+			static::$runInit = true;
 
-		return static::$instance;
+			$me = static::instance();
+
+			if (($types = static::types())) {
+				foreach ($types as $t => &$type) {
+					/// @todo Remove once slug is type checked
+					// Ensure slug does not have spaces and capitals
+					$type['slug'] = strtolower(str_replace(' ', '_', $type['slug']));
+
+					register_post_type($type['slug'], array(
+							'label' => __("$type[name]", 'book_schedule'),
+							'labels' => array(
+									//'name' => '',
+									'singular_name' => __("$type[singular]", 'book_schedule'),
+									'add_new_item' => __("Add New $type[singular]",
+											'book_schedule'),
+									'edit_item' => __("Edit New $type[singular]",
+											'book_schedule'),
+									'new_item' => __("New $type[singular]",
+											'book_schedule'),
+									'view_item' => __("View $type[singular]",
+											'book_schedule'),
+									'search_items' => __("Search $type[name]",
+											'book_schedule'),
+									'no_found' => __("$type[singular] not found",
+										 'book_schedule'),
+									'not_found_in_trash' => __("No $type[name] found in Trash",
+											'book_schedule'),
+							),
+							'description' => __("$type[description]", 'book_schedule'),
+							'public' => true,
+							'show_ui' => true,
+							'menu_postition' => 30,
+							'menu_icon' => 'dashicons-clock',
+							'supports' => array('title', 'editor', 'excerpt', 'thumbnail',
+									'trackbacks', 'comments', 'revisions', 'page-attributes'),
+							/// @todo 'taxonomies' => array(),
+							'has_archive' => true,
+					));
+				}
+			}
+		}
 	}
+
+	static function registerMetaboxes() {
+		$me = static::instance();
+		
+		if (($types = static::types())) {
+			foreach ($types as $t => &$type) {
+				/// @todo Remove once slug is type checked
+				// Ensure slug does not have spaces and capitals
+				$type['slug'] = strtolower(str_replace(' ', '_', $type['slug']));
+				
+				// Timings Box
+				add_meta_box('timings', __("$type[singular] Running Properties",
+						'book_schedule'), array(&$me, 'printTimingMeta'), $type['slug'],
+						'normal', 'high', array($type['type']));
+			}
+		}
+	}
+
+
 
 	/**
 	 * Enqueues scripts and stylesheets used by Gallery Hierarchy in the admin
@@ -149,13 +254,13 @@ class BookSchedule {
 	}
 
 	static function head() {
-		echo '<script type="text/javascript">'
+		/*echo '<script type="text/javascript">'
 				. 'jQuery(document).ready(function() {'
 				. 'jQuery("div[data-calendar=\'calendar\']").fullCalendar({'
 				. 'contentHeight: 400'
 				. '});'
 				. '});'
-				. '</script>';
+				. '</script>';*/
 	}
 
 	/**
@@ -209,6 +314,15 @@ class BookSchedule {
 					'book_schedule'));
 			$this->disable = true;
 		}*/
+	}
+
+	/**
+	 * Prints the timings metabox in the post edit view.
+	 *
+	 * @param $post Object The object of the item that is being edited
+	 * @param $type string The timing type of item the item type is.
+	 */
+	function printTimingMeta($post, $type) {
 	}
 
 	/**
