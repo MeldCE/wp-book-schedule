@@ -1,8 +1,6 @@
 <?php
 //require_once('utils.php');
-if (!class_exists('WPSettings')) {
-	require_once('wp-settings/WPSettings.php');
-}
+require_once('wp-settings/WPSettings.php');
 
 class BookSchedule {
 	protected static $instance = null;
@@ -184,6 +182,9 @@ class BookSchedule {
 		}
 	}
 
+	/**
+	 * Registers the special meta boxes for items in Book Schedule.
+	 */
 	static function registerMetaboxes() {
 		$me = static::instance();
 		
@@ -196,12 +197,15 @@ class BookSchedule {
 				// Timings Box
 				add_meta_box('timings', __("$type[singular] Running Properties",
 						'book_schedule'), array(&$me, 'printTimingMeta'), $type['slug'],
-						'normal', 'high', array($type['type']));
+						'normal', 'high', array($type));
+				
+				// Cost Box
+				add_meta_box('costs', __("$type[singular] Costs",
+						'book_schedule'), array(&$me, 'printCostsMeta'), $type['slug'],
+						'normal', 'high', array($type));
 			}
 		}
 	}
-
-
 
 	/**
 	 * Enqueues scripts and stylesheets used by Gallery Hierarchy in the admin
@@ -212,9 +216,9 @@ class BookSchedule {
 		wp_enqueue_script('wpsettings', 
 				plugins_url('/lib/wp-settings/js/wpsettings.min.js', dirname(__FILE__)));
 		/// @todo @see http://codex.wordpress.org/I18n_for_WordPress_Developers
-		/*wp_enqueue_script('ghierarchy', 
-				plugins_url('/js/ghierarchy.min.js', dirname(__FILE__)));
-		wp_enqueue_style( 'dashicons' );
+		wp_enqueue_script('book-schedule', 
+				plugins_url('/js/bookschedule.js', dirname(__FILE__)));
+		/*wp_enqueue_style( 'dashicons' );
 		wp_enqueue_style('ghierarchy',
 				plugins_url('/css/ghierarchy.min.css', dirname(__FILE__)), array('dashicons'));
 		wp_enqueue_script('jquery-ui-multiselect', 
@@ -320,9 +324,29 @@ class BookSchedule {
 	 * Prints the timings metabox in the post edit view.
 	 *
 	 * @param $post Object The object of the item that is being edited
-	 * @param $type string The timing type of item the item type is.
+	 * @param $type array The item type information.
 	 */
 	function printTimingMeta($post, $type) {
+		$id = uniqid();
+		echo '<div id="' . $id . '"></div>';
+		echo '<script type="text/javascript">'
+				. '</script>';
+	}
+
+	/**
+	 * Prints the costs metabox in the post edit view.
+	 *
+	 * @param $post Object The object of the item that is being edited.
+	 * @param $type array The item type information.
+	 */
+	function printCostsMeta($post, $type) {
+		$id = uniqid();
+		echo '<div id="' . $id . '"></div>';
+		echo '<a class="button" onclick="bS.costs.add(\'' . $id . '\')">'
+				. __('Add Cost', 'book_schedule') . '</a>';
+		echo '<script type="text/javascript">'
+				. 'bS.costs.init(\'' . $id . '\');'
+				. '</script>';
 	}
 
 	/**
