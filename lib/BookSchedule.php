@@ -170,6 +170,7 @@ class BookSchedule {
 							'description' => __("$type[description]", 'book_schedule'),
 							'public' => true,
 							'show_ui' => true,
+							'taxonomies' => array('category'),
 							'menu_postition' => 30,
 							'menu_icon' => 'dashicons-clock',
 							'supports' => array('title', 'editor', 'excerpt', 'thumbnail',
@@ -195,14 +196,19 @@ class BookSchedule {
 				$type['slug'] = strtolower(str_replace(' ', '_', $type['slug']));
 				
 				// Timings Box
-				add_meta_box('timings', __("$type[singular] Running Properties",
+				add_meta_box('timings', __("$type[singular] Running Times",
 						'book_schedule'), array(&$me, 'printTimingMeta'), $type['slug'],
 						'normal', 'high', array($type));
 				
 				// Cost Box
-				add_meta_box('costs', __("$type[singular] Costs",
-						'book_schedule'), array(&$me, 'printCostsMeta'), $type['slug'],
-						'normal', 'high', array($type));
+				add_meta_box('costs', __("$type[singular] Costs Options and Spaces "
+						. 'Available', 'book_schedule'), array(&$me, 'printCostsMeta'),
+						$type['slug'], 'normal', 'high', array($type));
+				
+				// Linked Booking Box
+				add_meta_box('linkedBooking', __('Linked Bookings ',
+						'book_schedule'), array(&$me, 'printLinkMeta'),
+						$type['slug'], 'normal', 'high', array($type));
 			}
 		}
 	}
@@ -249,12 +255,12 @@ class BookSchedule {
 	 * Enqueues scripts and stylesheets used by Gallery Hierarchy.
 	 */
 	static function enqueue() {
-		wp_enqueue_script('moment',
+		/*wp_enqueue_script('moment',
 				plugins_url('/lib/moment/moment.min.js', dirname(__FILE__)), array('jquery'));
 		wp_enqueue_script('fullcalendar',
 				plugins_url('/lib/fullcalendar/dist/fullcalendar.js', dirname(__FILE__)), array('jquery', 'moment'));
 		wp_enqueue_style('fullcalendar',
-				plugins_url('lib/fullcalendar/dist/fullcalendar.css', dirname(__FILE__)));
+				plugins_url('lib/fullcalendar/dist/fullcalendar.css', dirname(__FILE__)));*/
 	}
 
 	static function head() {
@@ -343,9 +349,25 @@ class BookSchedule {
 		$id = uniqid();
 		echo '<div id="' . $id . '"></div>';
 		echo '<a class="button" onclick="bS.costs.add(\'' . $id . '\')">'
-				. __('Add Cost', 'book_schedule') . '</a>';
+				. __('Add Option', 'book_schedule') . '</a>';
 		echo '<script type="text/javascript">'
 				. 'bS.costs.init(\'' . $id . '\');'
+				. '</script>';
+	}
+
+	/**
+	 * Prints the linked booking metabox in the post edit view.
+	 *
+	 * @param $post Object The object of the item that is being edited.
+	 * @param $type array The item type information.
+	 */
+	function printLinkMeta($post, $type) {
+		$id = uniqid();
+		echo '<div id="' . $id . '"></div>';
+		echo '<a class="button" onclick="bS.bookingLink.add(\'' . $id . '\')">'
+				. __('Add Linked Booking', 'book_schedule') . '</a>';
+		echo '<script type="text/javascript">'
+				. 'bS.bookingLink.init(\'' . $id . '\');'
 				. '</script>';
 	}
 
