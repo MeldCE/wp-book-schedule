@@ -8,6 +8,8 @@ class BookSchedule {
 	protected static $runInit = false;
 	protected static $settings = null;
 	protected static $types = null;
+	protected static $idPre = 'bs_';
+	protected static $locationType = 'bs_locations';
 
 	protected static $imageTableFields = array(
 			'id' => 'smallint(5) NOT NULL AUTO_INCREMENT',
@@ -42,6 +44,9 @@ class BookSchedule {
 						'items' => array(
 								'title' => __('Items Options', 'book_schedule'),
 								'fields' => array(
+										'version' => array(
+												'type' => 'internal',
+										),
 										'item_types' => array(
 												'title' => __('Item Types', 'book_schedule'),
 												'description' => __('The types of items that will be '
@@ -82,7 +87,14 @@ class BookSchedule {
 														),
 														'type' => array(
 															'title' => __('Type of Item', 'book_schedule'),
-															'description' => __(''),
+															'description' => __('Select what kind of events '
+																	. 'these will be. A termed event is an event '
+																	. 'that is running continuously and people '
+																	. 'can sign up to specific days. A '
+																	. '(repeating) event is a single event or '
+																	. 'an event that has multiple occurances '
+																	. 'and people can sign up to a specific '
+																	. 'occurance of that event', 'book_scedule'),
 															'type' => 'select',
 															'values' => array(
 																	'termed' => __('Termed Event',
@@ -90,9 +102,82 @@ class BookSchedule {
 																	'event' => __('(Repeating) Event',
 																		'book_schedule'),
 															),
-													)
+														),
+														'additionalInfoFields' => array(
+																'title' => __('Additional Information Fields', 'book_scedule'),
+																'description' => __('Create any additional '
+																		. 'fields you want to be available when '
+																		. 'creating an event of this type',
+																		'book_schedule'),
+																'type' => 'multiple',
+																'multiple' => true,
+																'fields' => array(
+																		'name' => array(
+																				'title' => __('Field Name', 'book_schedule'),
+																				'description' => __('The name of the type of '
+																						. 'item. Should be plural.',
+																						'book_schedule'),
+																				'type' => 'text',
+																		),
+																		'slug' => array(
+																				'title' => __('Slug Name', 'book_schedule'),
+																				'description' => __('A URL-friendly name of the '
+																						. 'type of item. It should not contain '
+																						. 'spaces or capital letters. Changing '
+																						. 'the slug of existing item types will '
+																						. 'result in the loss of the current items '
+																						. 'of that type.', 'book_schedule'),
+																				'type' => 'slug',
+																		),
+																		'type' => array(
+																				'title' => __('Field Type', 'book_schedule'),
+																				'description' => __('The type of field.',
+																						'book_schedule'),
+																				'type' => 'select',
+																				'values' => array(
+																					'text' => 'Text',
+																					'formatted' => 'Formatted Text',
+																				)
+																		)
+																),
+														),
 												)
 										),
+										/*'additionalTaxonamies' => array(
+												'title' => __('Additional Taxonamies', 'book_scedule'),
+												'description' => __('Create any taxonamies '
+														. 'you want to be available for this '
+														. 'type of item',
+														'book_schedule'),
+												'type' => 'multiple',
+												'multiple' => true,
+												'fields' => array(
+														'name' => array(
+																'title' => __('Taxonamy Name', 'book_schedule'),
+																'description' => __('The name of the type of '
+																		. 'item. Should be plural.',
+																		'book_schedule'),
+																'type' => 'text',
+														),
+														'slug' => array(
+																'title' => __('Slug Name', 'book_schedule'),
+																'description' => __('A URL-friendly name of the '
+																		. 'taxonamy. It should not contain '
+																		. 'spaces or capital letters. Changing '
+																		. 'the slug of existing item types will '
+																		. 'result in the loss of the current items '
+																		. 'of that type.', 'book_schedule'),
+																'type' => 'slug',
+														),
+														'hierarchical' => array(
+																'title' => __('Hierarchical', 'book_schedule'),
+																'description' => __('Whether or not '
+																		. 'taxonamy should be hierarchical.',
+																		'book_schedule'),
+																'type' => 'boolean',
+														)
+												),
+										),*/
 								)
 						)
 				)
@@ -109,12 +194,32 @@ class BookSchedule {
 		return static::$instance;
 	}
 
-	protected static function &types() {
+	/**
+	 * Returns either an array of the item types or a specific
+	 * item type.
+	 *
+	 * @param $typeSlug string If supplied, will return only the type information
+	 *              with the given slug, or null if does not exist.
+	 * @return array Either an array containing all the types or an array
+	 *         containing the information on a single type
+	 * @retval null The given type does not exist.
+	 */
+	protected static function &types($typeSlug = null) {
 		if (!static::$types) {
 			static::$types = static::$settings->item_types;
 		}
 
-		return static::$types;
+		if ($typeSlug) {
+			foreach (static::$types as &$type) {
+				if ($type['slug'] === $typeSlug) {
+					return $type;
+				}
+			}
+		} else {
+			return static::$types;
+		}
+		
+		return null;
 	}
 
 
@@ -135,7 +240,7 @@ class BookSchedule {
 	/**
 	 * Function to initialise post types from the item types.
 	 */
-	static function init() {
+	static function registerPostTypes() {
 		if (!static::$runInit) {
 			static::$runInit = true;
 
@@ -180,6 +285,38 @@ class BookSchedule {
 					));
 				}
 			}
+			
+			// Register location post type
+			register_post_type(static::$locationType, array(
+					'label' => __("Locations", 'book_schedule'),
+					'labels' => array(
+							//'name' => '',
+							'singular_name' => __("Location", 'book_schedule'),
+							'add_new_item' => __("Add New Location",
+									'book_schedule'),
+							'edit_item' => __("Edit New Location",
+									'book_schedule'),
+							'new_item' => __("New Location",
+									'book_schedule'),
+							'view_item' => __("View Location",
+									'book_schedule'),
+							'search_items' => __("Search Locations",
+									'book_schedule'),
+							'no_found' => __("Location not found",
+								 'book_schedule'),
+							'not_found_in_trash' => __("No Locations found in Trash",
+									'book_schedule'),
+					),
+					'description' => __("Locations for items in Book Schedule",
+							'book_schedule'),
+					'public' => true,
+					'show_ui' => true,
+					//'taxonomies' => array('category'),
+					'menu_postition' => 30,
+					'menu_icon' => 'dashicons-clock',
+					'supports' => array('title', 'editor', 'thumbnail', 'revisions'),
+					'has_archive' => true,
+			));
 		}
 	}
 
@@ -194,7 +331,20 @@ class BookSchedule {
 				/// @todo Remove once slug is type checked
 				// Ensure slug does not have spaces and capitals
 				$type['slug'] = strtolower(str_replace(' ', '_', $type['slug']));
+			
+				// Register metabox for additional information if have any
+				if (isset($type['additionalInfoFields'])
+						&& $type['additionalInfoFields']) {
+					add_meta_box('additional', __('Additional Information',
+							'book_schedule'), array(&$me, 'printAdditionalMeta'), $type['slug'],
+							'normal', 'high', array($type));
+				}
 				
+				// Location Box
+				add_meta_box('location', __('Location ',
+						'book_schedule'), array(&$me, 'printLocationMeta'),
+						$type['slug'], 'normal', 'high', array($type));
+
 				// Timings Box
 				add_meta_box('timings', __("$type[singular] Running Times",
 						'book_schedule'), array(&$me, 'printTimingMeta'), $type['slug'],
@@ -211,6 +361,12 @@ class BookSchedule {
 						$type['slug'], 'normal', 'high', array($type));
 			}
 		}
+
+		// Add location details metabox
+		add_meta_box('details', __('Locations',
+				'book_schedule'), array(&$me, 'printLocationDetailsMeta'),
+				static::$locationType, 'normal', 'high');
+
 	}
 
 	/**
@@ -327,12 +483,123 @@ class BookSchedule {
 	}
 
 	/**
+	 * Saves the information from the metaboxes when a post is saved
+	 *
+	 * @param int $postId The ID of the post being saved.
+	 */
+	static function saveMetaboxes($postId) {
+		// Check if our nonce is set.
+		if (!isset($_POST['print_additional_nonce'])) {
+			return;
+		}
+
+		// Verify that the nonce is valid.
+		if (!wp_verify_nonce($_POST['print_additional_nonce'],
+				'book_schdule_print_addtional')) {
+			return;
+		}
+		// If this is an autosave, our form has not been submitted, so we don't want to do anything.
+		if ( defined( 'DOING_AUTOSAVE' ) && DOING_AUTOSAVE ) {
+			return;
+		}
+		// Check the user's permissions.
+		if (isset($_POST['post_type']) && 'page' == $_POST['post_type']) {
+			if (!current_user_can( 'edit_page', $postId)) {
+				return;
+			}
+		} else {
+			if (!current_user_can('edit_post', $postId)) {
+				return;
+			}
+		}
+		/* OK, it's safe for us to save the data now. */
+		// Get the post type information
+		if ($type = static::types($_POST['post_type'])) {
+			if (isset($type['additionalInfoFields'])
+					&& $type['additionalInfoFields']) {
+				$data = array();
+				foreach ($type['additionalInfoFields'] as &$field) {
+					// Make sure that it is set.
+					if (!isset($_POST[$field['slug']])) {
+						continue;
+					}
+
+					switch($field['type']) {
+						case 'text':
+							// Sanitize user input.
+							$value = sanitize_text_field($_POST[$field['slug']]);
+							break;
+						case 'formatted':
+							$value = $_POST[$field['slug']];
+							break;
+					}
+
+					update_post_meta($postId, static::$idPre . $field['slug'], $value);
+				}
+			}
+		}
+	}
+
+	/**
+	 * Retrieves the given additional information for the current post.
+	 * Must be called from inside the loop.
+	 *
+	 * @param $item string The slug of the information to return
+	 */
+	static function getAdditional($item) {
+		if (get_the_ID()) {
+			if (($type = get_post_type()) && ($type = static::types($type))) {
+				if (isset($type['additionalInfoFields'])
+						&& $type['additionalInfoFields']) {
+					foreach ($type['additionalInfoFields'] as &$field) {
+						if ($field['slug'] === $item) {
+							return get_post_meta(get_the_ID(), static::$idPre . $item,
+									true);
+						}
+					}
+				}
+			}
+		}
+
+		return false;
+	}
+
+	/**
+	 * Prints the additional information metabox in the post edit view.
+	 *
+	 * @param $post Object The object of the item that is being edited
+	 * @param $metabox array The metabox data.
+	 */
+	function printAdditionalMeta($post, $metabox) {
+		$type = $metabox['args'][0];
+		
+		wp_nonce_field( 'book_schdule_print_addtional', 'print_additional_nonce' );
+
+		foreach ($type['additionalInfoFields'] as $field) {
+			$data = get_post_meta($post->ID, static::$idPre . $field['slug'], true);
+
+			echo '<h4>' . __($field['name'], 'book_schedule') . '</h4>';
+
+			switch ($field['type']) {
+				case 'text':
+					echo '<input name="' . $field['slug'] . '"'
+							. ($data ? ' value="' . $data . '"' : '')
+							. '>';
+					break;
+				case 'formatted':
+					wp_editor(($data ? $data : ''), $field['slug']);
+					break;
+			}
+		}
+	}
+
+	/**
 	 * Prints the timings metabox in the post edit view.
 	 *
 	 * @param $post Object The object of the item that is being edited
-	 * @param $type array The item type information.
+	 * @param $metabox array The metabox data.
 	 */
-	function printTimingMeta($post, $type) {
+	function printTimingMeta($post, $metabox) {
 		$id = uniqid();
 		echo '<div id="' . $id . '"></div>';
 		echo '<script type="text/javascript">'
@@ -343,13 +610,49 @@ class BookSchedule {
 	 * Prints the costs metabox in the post edit view.
 	 *
 	 * @param $post Object The object of the item that is being edited.
-	 * @param $type array The item type information.
+	 * @param $metabox array The metabox data.
 	 */
-	function printCostsMeta($post, $type) {
+	function printCostsMeta($post, $metabox) {
 		$id = uniqid();
 		echo '<div id="' . $id . '"></div>';
 		echo '<a class="button" onclick="bS.costs.add(\'' . $id . '\')">'
 				. __('Add Option', 'book_schedule') . '</a>';
+		echo '<script type="text/javascript">'
+				. 'bS.costs.init(\'' . $id . '\');'
+				. '</script>';
+	}
+
+	function printLocationMeta($post, $metabox) {
+		$id = uniqid();
+
+		echo '<p><label for="' . $id . '">' . __('Location:', 'book_schedule')
+		. '</label> <select name="location"><option></option>';
+
+		// Get locations
+		$args = array(
+				'post_type' => static::$locationType,
+				'posts_per_page' => -1,
+		);
+
+		if (($locations = get_posts($args))) {
+			foreach ($locations as &$location) {
+				echo '<option value="' . $location->ID . '">'
+						. $location->post_title . '</option>';
+			}
+		}
+
+		echo '</select> ';
+		echo '<a target="_blank" href="' . admin_url('post-new.php?post_type='
+				. static::$locationType) . '">' . __('Add Location', 'book_schedule')
+				. '</a>';
+		echo '</p>';
+	}
+
+	function printLocationDetailsMeta($post, $metabox) {
+		$id = uniqid();
+		echo '<div id="' . $id . '"></div>';
+		echo '<a class="button" onclick="bS.locations.add(\'' . $id . '\')">'
+				. __('Add Location', 'book_schedule') . '</a>';
 		echo '<script type="text/javascript">'
 				. 'bS.costs.init(\'' . $id . '\');'
 				. '</script>';
@@ -652,6 +955,41 @@ class BookSchedule {
 		set_transient(static::$scanTransient, $scan,
 				static::$scanTransientTime);
 		static::$nextSet = time() + 10;
+	}
+
+	static function checkVersion() {
+		$me = static::instance();
+		$newVersion = false;
+
+		switch (static::$settings->version) {
+			case '0.2':
+				/**
+				 * Add prefix onto start of metadata
+				 */
+
+				$types = $me::types();
+
+				foreach ($types as &$type) {
+					if (isset($type['additionalInfoFields']) && $type['additionalInfoFields']) {
+						$args = array('post_type' => $type['slug'], 'posts_per_page' => -1);
+						$posts = get_posts($args);
+
+						foreach ($posts as &$post) {
+							foreach ($type['additionalInfoFields'] as &$field) {
+								if (($data = get_post_meta($post->ID, $field['slug'], true))) {
+									update_post_meta($postId, static::$idPre . $field['slug'], $data);
+								}
+							}
+						}
+					}
+				}
+			case false:
+				$newVersion = '0.3';
+		}
+	
+		if ($newVersion) {
+			static::$settings->version = $newVersion;
+		}
 	}
 
 	/**

@@ -19,6 +19,7 @@ if (!class_exists('BookSchedule')) {
 		//}
 
 		if (is_plugin_active('book-schedule/book-schedule.php')) {
+			BookSchedule::checkVersion();
 			// Shortcodes
 			//add_shortcode('ghalbum', array('BookSchedule', 'doShortcode'));
 
@@ -32,12 +33,13 @@ if (!class_exists('BookSchedule')) {
 			//add_action('wp_ajax_gh_gallery', array('BookSchedule', 'ajaxGallery'));
 			//add_action('wp_ajax_gh_save', array('BookSchedule', 'ajaxSave'));
 		
-			add_action('init', array('BookSchedule', 'init'));
+			add_action('init', array('BookSchedule', 'registerPostTypes'));
 			if (is_admin()) {
 				// Initialise
 				add_action('init', array('BookSchedule', 'adminInit'));
 				add_action('add_meta_boxes', array('BookSchedule',
 						'registerMetaboxes'));
+				add_action('save_post', array('BookSchedule', 'saveMetaboxes'));
 			}
 		}
 	}
