@@ -29,11 +29,14 @@ if (!class_exists('BookSchedule')) {
 			add_action('wp_head', array('BookSchedule', 'head'));
 			add_action('admin_head', array('BookSchedule', 'head'));
 
+			add_action('get_footer', array('BookSchedule', 'printBookingPopup'));
+
 			// Handle AJAX requests (from image browser)
 			//add_action('wp_ajax_gh_gallery', array('BookSchedule', 'ajaxGallery'));
 			//add_action('wp_ajax_gh_save', array('BookSchedule', 'ajaxSave'));
 		
 			add_action('init', array('BookSchedule', 'registerPostTypes'));
+			add_action('init', array('BookSchedule', 'checkCookie'));
 			if (is_admin()) {
 				// Initialise
 				add_action('init', array('BookSchedule', 'adminInit'));

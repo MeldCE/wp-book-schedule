@@ -10,27 +10,9 @@ class BookSchedule {
 	protected static $types = null;
 	protected static $idPre = 'bs_';
 	protected static $locationType = 'bs_locations';
-
-	protected static $imageTableFields = array(
-			'id' => 'smallint(5) NOT NULL AUTO_INCREMENT',
-			'file' => 'text NOT NULL',
-			'width' => 'smallint(5) unsigned NOT NULL',
-			'height' => 'smallint(5) unsigned NOT NULL',
-			'added' => 'timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP',
-			'taken' => 'timestamp',
-			'title' => 'text',
-			'comment' => 'text',
-			'tags' => 'text',
-			'metadata' => 'text',
-			'exclude' => 'tinyint(1) unsigned NOT NULL DEFAULT 0',
-	);
-
-	protected static $dirTableFields = array(
-			'id' => 'smallint(5) NOT NULL AUTO_INCREMENT',
-			'dir' => 'varchar(350) NOT NULL',
-			'added' => 'timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP',
-	);
-
+	protected static $bookingType = 'bs_bookings';
+	protected static $popupInserted = false;
+	protected static $cookie = 'bookschedule';
 
 	protected function  __construct() {
 		global $wpdb;
@@ -179,8 +161,25 @@ class BookSchedule {
 												),
 										),*/
 								)
-						)
-				)
+						),
+						'other' => array(
+								'title' => __('Other Options', 'book_schedule'),
+								'fields' => array(
+										'version' => array(
+												'type' => 'internal',
+										),
+										'showPopup' => array(
+												'title' => __('Show booking pop-up', 'book_schedule'),
+												'description' => __('If this option is checked, the '
+														. 'booking popup, showing currently selected '
+														. 'items will be displayed on over page.',
+														'book_schedule'),
+												'type' => 'boolean',
+												'default' => true,
+										),
+								),
+						),
+				),
 		);
 
 		static::$settings = new WPSettings($options);
@@ -222,6 +221,16 @@ class BookSchedule {
 		return null;
 	}
 
+	/**
+	 * Checks and sets the bookschedule cookie.
+	 */
+	static function checkCookie() {
+		if (!isset($_COOKIE[static::$cookie])) {
+			$_COOKIE[static::$cookie] = uniqid();
+		}
+
+		setcookie(static::$cookie, $_COOKIE[static::$cookie]);
+	}
 
 	/**
 	 * Function to initialise the plugin when in the dashboard
@@ -259,7 +268,7 @@ class BookSchedule {
 									'singular_name' => __("$type[singular]", 'book_schedule'),
 									'add_new_item' => __("Add New $type[singular]",
 											'book_schedule'),
-									'edit_item' => __("Edit New $type[singular]",
+									'edit_item' => __("Edit $type[singular]",
 											'book_schedule'),
 									'new_item' => __("New $type[singular]",
 											'book_schedule'),
@@ -279,7 +288,7 @@ class BookSchedule {
 							'menu_postition' => 30,
 							'menu_icon' => 'dashicons-clock',
 							'supports' => array('title', 'editor', 'excerpt', 'thumbnail',
-									'trackbacks', 'comments', 'revisions', 'page-attributes'),
+									'trackbacks', 'revisions'),
 							/// @todo 'taxonomies' => array(),
 							'has_archive' => true,
 					));
@@ -294,7 +303,7 @@ class BookSchedule {
 							'singular_name' => __("Location", 'book_schedule'),
 							'add_new_item' => __("Add New Location",
 									'book_schedule'),
-							'edit_item' => __("Edit New Location",
+							'edit_item' => __("Edit Location",
 									'book_schedule'),
 							'new_item' => __("New Location",
 									'book_schedule'),
@@ -317,6 +326,46 @@ class BookSchedule {
 					'supports' => array('title', 'editor', 'thumbnail', 'revisions'),
 					'has_archive' => true,
 			));
+
+			/**
+			 * Register the booking post type.
+			 * Used to store user bookings
+			 */
+			register_post_type(static::$bookingType, array(
+					'label' => __("Bookings", 'book_schedule'),
+					'labels' => array(
+							//'name' => '',
+							'singular_name' => __("Bookings", 'book_schedule'),
+							'add_new_item' => __("Add New Booking",
+									'book_schedule'),
+							'edit_item' => __("Edit Booking",
+									'book_schedule'),
+							'new_item' => __("New Booking",
+									'book_schedule'),
+							'view_item' => __("View Booking",
+									'book_schedule'),
+							'search_items' => __("Search Bookings",
+									'book_schedule'),
+							'no_found' => __("Booking not found",
+								 'book_schedule'),
+							'not_found_in_trash' => __("No Bookings found in Trash",
+									'book_schedule'),
+					),
+					'description' => __("Bookings from Book Schedule",
+							'book_schedule'),
+					'public' => true,
+					'exclude_from_search' => true,
+					'publicly_queryable' => false,
+					'has_archive' => false,
+					'show_ui' => true,
+					'show_in_nav_menus' => false,
+					//'taxonomies' => array('category'),
+					'menu_postition' => 30,
+					'menu_icon' => 'dashicons-clock',
+					'supports' => array('revisions', 'comments'),
+					'has_archive' => true,
+			));
+
 		}
 	}
 
@@ -417,6 +466,10 @@ class BookSchedule {
 				plugins_url('/lib/fullcalendar/dist/fullcalendar.js', dirname(__FILE__)), array('jquery', 'moment'));
 		wp_enqueue_style('fullcalendar',
 				plugins_url('lib/fullcalendar/dist/fullcalendar.css', dirname(__FILE__)));*/
+		wp_enqueue_style('bookschedule',
+				plugins_url('css/bookschedule.css', dirname(__FILE__)));
+		wp_enqueue_script('bookschedule',
+				plugins_url('js/bookschedule.js', dirname(__FILE__)), array('jquery'));
 	}
 
 	static function head() {
@@ -513,6 +566,16 @@ class BookSchedule {
 			}
 		}
 		/* OK, it's safe for us to save the data now. */
+		if (isset($_POST['location'])) {
+			// Check it is a valid location
+			if (($id = (intval($_POST['location'])))) {
+				if (($post = get_post($id))
+						&& $post->post_type === static::$locationType) {
+					update_post_meta($postId, static::$locationType, $id);
+				}
+			}
+		}
+		
 		// Get the post type information
 		if ($type = static::types($_POST['post_type'])) {
 			if (isset($type['additionalInfoFields'])
@@ -562,6 +625,141 @@ class BookSchedule {
 		}
 
 		return false;
+	}
+
+	static function getLocation() {
+		if (get_the_ID()) {
+			if (($type = get_post_type()) && ($type = static::types($type))) {
+				if (($location = get_post_meta(get_the_ID(), static::$locationType,
+						true))) {
+					return get_post($location);
+				}
+			}
+		}
+		
+		return false;
+	}
+
+	/**
+	 * Returns a javascript call to be included on a button to add the
+	 * current post to the current booking.
+	 */
+	static function bookJavascript() {
+		if (get_the_ID()) {
+			if (($type = get_post_type()) && ($type = static::types($type))) {
+				return 'bS.book.add(\'booking\', \'' . get_post_type() . '\', \''
+						. get_the_id() . '\');';
+			}
+		}
+	}
+
+	/**
+	 * Returns a javascript call to be included on a button to add the
+	 * current post to the current inquiry.
+	 */
+	static function inquireJavascript() {
+		if (get_the_ID()) {
+			if (($type = get_post_type()) && ($type = static::types($type))) {
+				return 'bS.book.add(\'inquiry\', \'' . get_post_type() . '\', \''
+						. get_the_id() . '\');';
+			}
+		}
+	}
+
+	/**
+	 * Called during the get_footer action to create the bookings popup
+	 */
+	static function printBookingPopup() {
+		$me = static::instance();
+
+		if (static::$settings->showPopup && !static::$popupInserted) {
+
+			$id = uniqid();
+
+			echo '<div id="' . $id . '" class="bsBookingPopup">'
+					. '<div id="' . $id . 'button" class="button">'
+					. __('My Bookings and Inquires', 'book_schedule') . '</div>'
+					. '<div class="bookings" id="' . $id . 'bookingsFrame">'
+					. '<div id="' . $id . 'bookings">';
+			echo '</div></div></div>';
+			$data = $me->getBookingsData();
+			$data = json_encode($data);
+			echo '<script type="text/javascript">'
+					. 'bS.book.init(\'' . $id . '\', \'' . $data . '\');'
+					. '</script>';
+
+			// Store that we have inserted the popup
+			static::$popupInserted = true;
+		}
+	}
+
+	protected function getBookingsData() {
+		// Get bookings
+		$args = array(
+				'nopaging' => true,
+				'post_status' => array('publish', 'pending', 'draft'),
+				'post_types' => static::$bookingType,
+				'orderby' => 'date',
+				'order' => 'DESC',
+				'meta_query' => array(
+						array(
+								'key' => 'session',
+								'value' => $_COOKIE[static::$cookie],
+								'compare' => '='
+						),
+				),
+		);
+
+		// Check if a user is logged
+		if (is_user_logged_in()) {
+			$user = wp_get_current_user();
+
+			$args['meta_query'][] = array(
+					'key' => 'user',
+					'value' => $user->ID,
+					'compare' => '='
+			);
+		}
+
+		$grouped = array();
+
+		if (($bookings = get_posts($args))) {
+			foreach ($bookings as &$booking) {
+				if (!isset($grouped[$booking->post_status])) {
+					$grouped[$booking->post_status] = array();
+				}
+				// Get the booked/inquired items and the titles and links
+				$booking['data'] = get_post_meta($booking->ID, static::$bookingType, true);
+				if (isset($booking['data']['items'])) {
+					foreach ($booking['data']['items'] as &$item) {
+						if (($post = get_post($item['id']))) {
+							$item['link'] = get_permalink($post->ID);
+							$item['title'] = $post->post_title;
+						}
+					}
+				}
+
+				$grouped[$booking->post_status][] = $booking;
+			}
+
+			// Go through statuses and print
+			if (isset($grouped['draft'])) {
+				$drafts = array();
+				foreach ($grouped['draft'] as &$booking) {
+					if (isset($booking['data']['type'])) {
+						if (isset($booking['data']['type'])) {
+							if (!isset($drafts[$booking['data']['type']])) {
+								$drafts[$booking['data']['type']] = true;
+							} else { // Will need to merge and then delete
+								// @todo
+							}
+						}
+					}
+				}
+			}
+		}
+
+		return $grouped;
 	}
 
 	/**
@@ -625,6 +823,9 @@ class BookSchedule {
 	function printLocationMeta($post, $metabox) {
 		$id = uniqid();
 
+		// Get current value
+		$data = get_post_meta($post->ID, static::$locationType, true);
+
 		echo '<p><label for="' . $id . '">' . __('Location:', 'book_schedule')
 		. '</label> <select name="location"><option></option>';
 
@@ -636,8 +837,9 @@ class BookSchedule {
 
 		if (($locations = get_posts($args))) {
 			foreach ($locations as &$location) {
-				echo '<option value="' . $location->ID . '">'
-						. $location->post_title . '</option>';
+				echo '<option value="' . $location->ID . '"' 
+						. ($data ? ($data == $location->ID ? ' selected' : '') : '') 
+						. '>' . $location->post_title . '</option>';
 			}
 		}
 

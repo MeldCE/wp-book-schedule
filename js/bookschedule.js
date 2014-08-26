@@ -1,5 +1,8 @@
 var bS = (function() {
+	// Private store for costs
 	var c = {};
+	// Private store for book
+	var b = false;
 
 	function error(msg) {
 		console.error('Book Schedule error: ' + msg);
@@ -227,6 +230,19 @@ var bS = (function() {
 		}
 	};
 
+	var book = {
+		add: function(bType, type, id, data) {
+			book.showFrame('bookingsFrame', 2000);
+		},
+
+		showFrame: function(frame, time) {
+			if (b[frame] && !b[frame].hasClass('open')) {
+				b[frame].addClass('open');
+				setTimeout(returnFunction(function() { b[frame].removeClass('open'); }, this), time);
+			}
+		}
+	};
+
 	return {
 		/**
 		 * Handles the drawing and actions associated with the costs metabox.
@@ -293,6 +309,40 @@ var bS = (function() {
 				if (c[id]) {
 					d('Found costs id ' + id);
 					links.addCostDiv(id);
+				}
+			},
+		},
+		
+		/**
+		 * Handles the drawing and actions associated with modifying current
+		 * bookings and the bookings popup
+		 */
+		book: {
+			init: function(id, bookings) {
+				if (!b) {
+					d('setting up booking');
+
+					bookings = JSON.parse(bookings);
+
+					b = {
+						'id': id,
+						'pad': $('#' + id),
+						'button': $('#' + id + 'button'),
+						'bookings': $('#' + id + 'bookings'),
+						'bookingsFrame': $('#' + id + 'bookingsFrame'),
+						//'': $('#' + id + ''),
+						'data': bookings
+					};
+					d(b['data']);
+					if (!b['data'].length) {
+						b['bookings'].html('<p>No bookings or inquiries yet</p>');
+					}
+				}
+			},
+
+			add: function(bType, type, id) {
+				if (b) {
+					book.showFrame('bookingsFrame', 2000);
 				}
 			},
 		},
