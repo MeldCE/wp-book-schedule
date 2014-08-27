@@ -30,7 +30,7 @@ class BookSchedule {
 	protected function  __construct() {
 		global $wpdb;
 
-		static::$lp = fopen('bookSchedule.log', 'a');
+		//static::$lp = fopen('bookSchedule.log', 'a');
 
 		$options = array(
 				'title' => __('Book Schedule Options', 'book_schedule'),
@@ -429,7 +429,16 @@ class BookSchedule {
 		add_meta_box('details', __('Locations',
 				'book_schedule'), array(&$me, 'printLocationDetailsMeta'),
 				static::$locationType, 'normal', 'high');
-
+		
+		// Booking Items
+		add_meta_box('bookedItems', __('Items ',
+				'book_schedule'), array(&$me, 'printItemsMeta'),
+				static::$bookingType, 'normal', 'high');
+				
+		// Booking Status
+		add_meta_box('linkedBooking', __('Linked Bookings ',
+				'book_schedule'), array(&$me, 'printStatusMeta'),
+				static::$bookingType, 'normal', 'high');
 	}
 
 	/**
@@ -625,12 +634,6 @@ class BookSchedule {
 		$me = static::instance();
 		$error = false;
 
-
-		static::d(__LINE__, 'cookie: ' . $_COOKIE[static::$cookie]);
-
-		static::d(__LINE__, 'ajaxAdd');
-		static::d(__LINE__, $_POST);
-
 		if (isset($_POST['bs_add']) && ($data =& $_POST['bs_add'])) {
 			// Check if we have a nonce
 			if (isset($data['nonce']) && isset($data['item'])
@@ -666,7 +669,7 @@ class BookSchedule {
 						}
 
 						if (!$error) {
-							array_push($booking['items'], $data['item']);
+							$booking['items'][uniqid()] = $data['item'];
 
 							$me->updateBooking($booking);
 						}
@@ -690,22 +693,150 @@ class BookSchedule {
 				}
 			}
 		}
+		
+		exit;
+	}
 
+	static function ajaxRemove() {
+		$me = static::instance();
+
+		$error = false;
+		$success = false;
+
+		if (isset($_POST['bs_removeItem']) && ($data =& $_POST['bs_removeItem'])) {
+			// Get booking
+			if (!($booking = $me->getBookingsData($data['type'], 'draft'))) {
+				$error = __('You do currently not have a ' . $data['type'],
+						'book_schedule');
+			} else if (!isset($booking['items']) || !count($booking['items'])) {
+				$error = __('You currently do not have any items in your '
+						. $data['type'], 'book_schedule');
+			}
+
+			if (!$error) {
+					// Try and find the item
+					$found = false;
+					if (($keys = array_keys($booking['items']))) {
+						foreach ($keys as $i) {
+							if ($booking['items'][$i]['id'] == $data['id']) {
+								unset($booking['items'][$i]);
+								$found = true;
+								break;
+							}
+						}
+					}
+
+					if ($found) {
+						$me->updateBooking($booking);
+						$success = __('Item deleted from your ' . $data['type'],
+								'book_schedule');
+					} else {
+						$success = __('Could not find item in your ' . $data['type'],
+								'book_schedule');
+					}
+			}
+		} else {
+			$error = __('Invalid request. Please try again', 'book_schedule');
+		}
+		
+		// Return information
+		header('Content-Type: application/json');
+		if ($error) {
+			echo json_encode(array(
+					'error' => $error
+			));
+		} else if (isset($success)) {
+			echo json_encode(array(
+					'success' => $success
+			));
+		}
+		
 		exit;
 	}
 
 	static function ajaxBook() {
 		$me = static::instance();
 
+		$error = false;
+		$form = false;
+
 		if (isset($_POST['bs_book']) && ($data =& $_POST['bs_book'])) {
 			// Get booking
-			if (!($booking = $me->getBookingsData($data['type'], 'draft'))) {
-				// Create a new booking/inquiry
-				
+			if (!($booking = $me->getBookingsData($data['type'], 'draft', true))) {
+				$error = __('You do currently not have a ' . $data['type'],
+						'book_schedule');
+			} else if (!isset($booking['items']) || !count($booking['items'])) {
+				$error = __('You currently do not have any items in your '
+						. $data['type'], 'book_schedule');
 			}
 
-		//if (is_user_logged_in())
+			if (!$error) {
+				if (is_user_logged_in()) {
+					$form = '<p>' . __('Confirming your ' . $data['type'] . ' is for:',
+							'book_schedule') . '</p><ul>';
+					foreach ($booking['items'] as &$item) {
+						$form .= '<li>' . get_the_title($item['id']) . '</li>';
+					}
+					$form .= '</ul>';
+				} else {
+					$error = __('You must be <a target="_blank" href="'
+							. wp_registration_url() . '">registered</a> and <a '
+							. 'target="_blank" href="' . wp_login_url() . '">logged in</a> '
+							. 'to submit a ' . $data['type'], 'book_schedule');
+				}
+			}
+		} else if (isset($_POST['bs_send']) && ($data =& $_POST['bs_send'])) {
+			// Get booking
+			if (!($booking = $me->getBookingsData($data['type'], 'draft'))) {
+				$error = __('You do currently not have a ' . $data['type'],
+						'book_schedule');
+			} else if (!isset($booking['items']) || !count($booking['items'])) {
+				$error = __('You currently do not have any items in your '
+						. $data['type'], 'book_schedule');
+			}
+
+			if (!$error) {
+				if (is_user_logged_in()) {
+					// Publish the booking
+					$booking['status'] = 'publish';
+					$me->updateBooking($booking);
+					if (isset($data['comment']) && $data['comment']) {
+						$args = array(
+								'comment_post_ID' => $booking['ID'],
+								'comment_content' => $data['comment'],
+								'comment_approved' => 1
+						);
+						wp_insert_comment($args);
+					}
+					$success = __(ucwords($data['type']) . ' sent.', 'book_schedule');
+				} else {
+					$error = __('You must be <a target="_blank" href="'
+							. wp_registration_url() . '">registered</a> and <a '
+							. 'target="_blank" href="' . wp_login_url() . '">logged in</a> '
+							. 'to submit a ' . $data['type'], 'book_schedule');
+				}
+			}
+		} else {
+			$error = __('Invalid request. Please try again', 'book_schedule');
 		}
+		
+		// Return information
+		header('Content-Type: application/json');
+		if ($error) {
+			echo json_encode(array(
+					'error' => $error
+			));
+		} else if (isset($success)) {
+			echo json_encode(array(
+					'success' => $success
+			));
+		} else if (isset($form)) {
+			echo json_encode(array(
+					'form' => $form
+			));
+		}
+		
+		exit;
 	}
 
 	/**
@@ -786,13 +917,14 @@ class BookSchedule {
 					. '<div id="' . $id . 'message" class="message"></div>'
 					. '<div id="' . $id . 'bookings" class="bookings">';
 			echo '</div></div></div>';
-			if (($data = $me->getBookingsData())) {
+			if (($data = $me->getBookingsData(null, null, true))) {
 				$data = json_encode($data);
 			} else {
 				$data = '';
 			}
 			echo '<script type="text/javascript">'
-					. 'bS.book.init(\'' . $id . '\', \'' . $data . '\');'
+					. 'bS.book.init(\'' . $id . '\', \'' . admin_url('admin-ajax.php')
+					. '\', \'' . $data . '\');'
 					. '</script>';
 
 			// Store that we have inserted the popup
@@ -800,19 +932,30 @@ class BookSchedule {
 		}
 	}
 
+	/**
+	 * Updates/creates booking with the given data.
+	 *
+	 * @param $data array Data for the booking.
+	 */
 	protected function updateBooking($data) {
 		$postData = array(
 				'post_status' => $data['status'],
 				'post_type' => static::$bookingType,
-				'ping_status' => false,
-				'comment_status' => true,
+				'ping_status' => 'closed',
+				'comment_status' => 'open',
 		);
 
 		// Add user if logged in
 		if (is_user_logged_in()) {
 			$user = wp_get_current_user();
 			$postData['post_author'] = $user->ID;
+			$postData['post_title'] = $user->user_firstname . ' '
+					. $user->user_lastname;
+		} else {
+			$postData['post_title'] = 'Guest';
 		}
+
+		$postData['post_title'] .= ' ' . date('Y-m-d');
 
 		// Submit post
 		if (isset($data['ID'])) {
@@ -830,13 +973,24 @@ class BookSchedule {
 		} else {
 			update_post_meta($postId, static::$idPre . 'session', $_COOKIE[static::$cookie]);
 		}
-
+		
 		// Add items
 		update_post_meta($postId, static::$bookingType, array(
 				'type' => $data['type'], 'items' => $data['items']));
 	}
 
-	protected function getBookingsData($type = null, $status = null) {
+	/**
+	 * Retrieves all or particular bookings of the current user.
+	 *
+	 * @param $type ('inquiry'|'booking') If specified, will only return
+	 *              the types of booking specified.
+	 * @param $status ('draft'|'publish') If specified, will only return
+	 *                the bookings with the specified status.
+	 * @return array If the $status is draft and a $type is specified will
+	 *         return the single draft booking of that $type, otherwise
+	 *         will return an array of bookings.
+	 */
+	protected function getBookingsData($type = null, $status = null, $forJSON = false) {
 		if (!in_array($type, array('inquiry', 'booking'))) {
 			$type = null;
 		}
@@ -844,7 +998,7 @@ class BookSchedule {
 		// Get bookings
 		$args = array(
 				'nopaging' => true,
-				'post_status' => ($status ? $status : array('publish', 'pending', 'draft')),
+				'post_status' => ($status ? $status : array('publish', 'draft')),
 				'post_type' => static::$bookingType,
 				'orderby' => 'date',
 				'order' => 'DESC',
@@ -881,8 +1035,10 @@ class BookSchedule {
 					if (isset($booking['items'])) {
 						foreach ($booking['items'] as &$item) {
 							if (($post = get_post($item['id']))) {
-								$item['url'] = get_permalink($post->ID);
-								$item['title'] = $post->post_title;
+								if ($forJSON) {
+									$item['url'] = get_permalink($post->ID);
+									$item['title'] = $post->post_title;
+								}
 								$item['id'] = $item['id'];
 							}
 						}
@@ -890,7 +1046,7 @@ class BookSchedule {
 
 					$booking['status'] = $b->post_status;
 					$booking['ID'] = $b->ID;
-
+					$booking['date'] = $b->post_date;
 					/// @todo Include administration info for administrators.
 				}
 
@@ -899,23 +1055,45 @@ class BookSchedule {
 					$data[$booking['type']] = array();
 				}
 
-				if ($booking['status'] == 'draft') {
+				if ($booking['status'] === 'draft') {
 					if (!isset($data[$booking['type']][$booking['status']])) {
-						$data[$booking['type']]['draft'] =& $booking;
+						$data[$booking['type']]['draft'] = $booking;
 					} else {
 						// @todo Need to merge drafts
+						if ($booking['type'] == 'inquiry') {
+							if (isset($booking['items'])) {
+								if (!isset($data[$booking['type']]['draft']['items'])) {
+									$data[$booking['type']]['draft']['items']
+											= $booking['items'];
+								} else {
+									foreach ($booking['items'] as &$item) {
+										$found = false;
+										foreach ($data[$booking['type']]['draft']['items'] as &$sitem) {
+											if (isset($item['id']) && isset($item['id'])
+													&& $item['id'] == $item['id']) {
+												$found = true;
+												break;
+											}
+										}
+										if (!$found) {
+											$data[$booking['type']]['draft']['items'][] = $item;
+										}
+									}
+								}
+							}
+						}
+
+						// Delete duplicate
+						wp_delete_post($b->ID, true);
 					}
 				} else {
 					if (!isset($grouped[$booking['type']]['submitted'])) {
 						$data[$booking['type']]['submitted'] = array();
 					}
-					$data[$booking['type']]['submitted'][] =& $booking;
+					$data[$booking['type']]['submitted'][] = $booking;
 				}
 			}
 		}
-
-		static::d(__LINE__, $args);
-		static::d(__LINE__, $data);
 
 		if ($type) {
 			if (isset($data[$type])) {
@@ -1050,6 +1228,30 @@ class BookSchedule {
 		echo '<script type="text/javascript">'
 				. 'bS.bookingLink.init(\'' . $id . '\');'
 				. '</script>';
+	}
+
+	function printItemsMeta($post) {
+		// Get the metadata
+		if (($data = get_post_meta($post->ID, static::$bookingType, true))) {
+			if (isset($data['items'])) {
+				echo '<ul>';
+				foreach ($data['items'] as &$item) {
+					echo '<li><a target="_blank" href="' . get_permalink($item['id'])
+							. '">' . get_the_title($item['id']) . '</a></li>';
+				}
+				echo '<ul>';
+			}
+		}
+	}
+
+	function printStatusMeta($post) {
+		// Get the metadata
+		if (($data = get_post_meta($post->ID, static::$bookingType, true))) {
+			// Print type
+			if (isset($data['type'])) {
+				echo '<p><strong>Type:</strong> ' . ucwords($data['type']) . '</p>';
+			}
+		}
 	}
 
 	/**

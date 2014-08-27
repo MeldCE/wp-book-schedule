@@ -34,6 +34,10 @@ if (!class_exists('BookSchedule')) {
 			// Handle AJAX requests (from bookings)
 			add_action('wp_ajax_bs_add', array('BookSchedule', 'ajaxAdd'));
 			add_action('wp_ajax_nopriv_bs_add', array('BookSchedule', 'ajaxAdd'));
+			add_action('wp_ajax_bs_remove', array('BookSchedule', 'ajaxRemove'));
+			add_action('wp_ajax_nopriv_bs_remove', array('BookSchedule', 'ajaxRemove'));
+			add_action('wp_ajax_bs_book', array('BookSchedule', 'ajaxBook'));
+			add_action('wp_ajax_nopriv_bs_book', array('BookSchedule', 'ajaxBook'));
 
 			add_action('init', array('BookSchedule', 'registerPostTypes'));
 			add_action('init', array('BookSchedule', 'checkCookie'));

@@ -102,10 +102,6 @@ var bS = (function() {
 	 *             when the toggled object is shown.
 	 */
 	function toggle(toggleObject, labelObject, label, hide) {
-		console.log(toggleObject);
-		console.log(labelObject);
-		console.log(label);
-		console.log(hide);
 		if (toggleObject) {
 			if (toggleObject.hasClass('hide')) {
 				toggleObject.removeClass('hide');
@@ -128,7 +124,16 @@ var bS = (function() {
 			}
 		}
 	}
-	
+
+	function isEmpty(map) {
+		for(var key in map) {
+			if (map.hasOwnProperty(key)) {
+				return false;
+			}
+		}
+		return true;
+	}
+
 	/**
 	 * Create a labelled frame.
 	 *
@@ -152,6 +157,8 @@ var bS = (function() {
 	 *                            when label is a jQuery Object.
 	 *                toggleHideLabel string If given, will be passed as the
 	 *                                hide label to the toggle function.
+	 *                returnFrame boolean If true, will return an array
+	 *                            containing the frame and the inside div
 	 * @return jQueryObject of the newly created frame.
 	 */
 	function createLabelledFrame(obj, label, options) {
@@ -166,12 +173,8 @@ var bS = (function() {
 			if (options['class']) {
 				z.addClass(options['class']);
 			}
-			if (stringLabel) {
-				z.append((w = $(document.createElement('div'))));
-				w.append(label);
-			} else {
-				z.append(label);
-			}
+			z.append((w = $(document.createElement('div'))));
+			w.append(label);
 
 			z.append((x = $(document.createElement('div'))));
 			if (options['frameClass']) {
@@ -186,9 +189,7 @@ var bS = (function() {
 				if (options['hoverShow']) {
 					z.addClass('hoverShow');
 				} else {
-					//if (label)
-					// toggle(toggleObject, labelObject, label, hide)
-					z.click(rFunc(toggle, this, false, x,
+					w.click(rFunc(toggle, this, false, x,
 							(options['labelObject'] ? options['labelObject'] : (stringLabel ? w : null)),
 							(options['toggleLabel'] ? options['toggleLabel'] : (stringLabel ? label : null)),
 							(options['toggleHideLabel'] ? options['toggleHideLabel'] : null)
@@ -196,7 +197,11 @@ var bS = (function() {
 				}
 			}
 
-			return x;
+			if (options['returnFrame']) {
+				return [z, x];
+			} else {
+				return x;
+			}
 		}
 	}
 
@@ -349,20 +354,23 @@ var bS = (function() {
 
 	var book = {
 		add: function(type, nonce, data, textStatus, jqXHR) {
-			console.log(data);
 			// Check we have valid data
 			if (data['nonce'] && data['nonce'] == nonce) {
 				// Check if there was an error on the server
 				if (data['error']) {
 					book.message(data['error'], 'error', 4000);
 				} else {
-					var i = b['data'][type]['draft']['items'].push(data);
+					var id = (new Date().getTime()).toString(16);
+					if (!b['data'][type]['draft']['items']) {
+						b['data'][type]['draft']['items'] = {};
+					}
+					b['data'][type]['draft']['items'][id] = data;
 					// Create div if it hasn't already
 					if (!b['data'][type]['draftDiv']) {
 						b['data'][type]['draftDiv'] = book.createDraftFrame(b['draftDiv'], type);
 					}
 					
-					book.addItem(b['data'][type]['draftDiv'], b['data'][type]['draft']['items'], i-1); 
+					book.addItem(type, b['data'][type]['draftDiv'], b['data'][type]['draft']['items'], id, true); 
 
 					/// @todo language
 					book.message('Item was added to your ' + type + '.', 'success', 2000);
@@ -372,56 +380,153 @@ var bS = (function() {
 			}
 		},
 
-		createDraftFrame: function(obj, type) {
+		createDraftFrame: function(obj, type, returnFrame) {
 			if (obj) {
-				var z, y, x;
+				var z, y, x, w;
 				v = createLabelledFrame(obj, 'Current ' + type, {
 					'class': type,
 					'frameClass': 'items',
+					'returnFrame': returnFrame
 				});
+
+				if (returnFrame) {
+					w = v[0];
+					v = v[1];
+				}
 
 				v.append((y = $(document.createElement('div'))));
 				v.append((x = $(document.createElement('a'))));
 				x.html('Submit ' + type);
-				//x.click();
+				x.addClass('button');
+				x.click(rFunc(book.book, this, false, type));
 
-				return y;
-			}
-		},
-
-		addItems: function(obj, items) {
-			if (obj) {
-				for (i in items) {
-					book.addItem(obj, items, i);
+				if (returnFrame) {
+					return [w, y];
+				} else {
+					return y;
 				}
 			}
 		},
 
-		addItem: function(obj, items, i) {
+		book: function (type) {
+			if (b) {
+				book.message('Checking your ' + type + '...', null, 2000);
+
+				$.post(b['ajaxurl'] + '?action=bs_book', {'bs_book': {'type': type}}, rFunc(book.confirmBooking, this, true, type));
+			}
+		},
+
+		confirmBooking: function(type, data, textStatus, jqXHR) {
+			if (b) {
+				if (data['error']) {
+					book.message(data['error'], 'error', 4000);
+				} else if (data['form']) {
+					var z, y;
+					book.message(data['form'], 'confirm', true);
+					b['message'].append((z = $(document.createElement('p'))));
+					z.html('Please write if you have anything to add to your ' + type);
+					b['message'].append((z = $(document.createElement('textarea'))));
+					b['message'].append((y = $(document.createElement('a'))));
+					y.html('Send');
+					y.addClass('button');
+					y.click(rFunc(book.sendBooking, this, false, type, z));
+					b['message'].append((y = $(document.createElement('a'))));
+					y.html('Cancel');
+					y.addClass('button');
+					y.click(rFunc(book.message, this, false, 'Cancelled', null, 2000));
+				} else {
+					book.message('There was an error processing your request. Please try again.', 'error', 4000);
+				}
+			}
+		},
+
+		sendBooking: function(type, commentField) {
+			if (b) {
+				$.post(b['ajaxurl'] + '?action=bs_book', {'bs_send': {'type': type, 'comment': (commentField && commentField.val) ? commentField.val() : ''}}, rFunc(book.bookingSent, this, true, type));
+				book.message('Sending ' + type + '...', null, 2000);
+			}
+		},
+
+		bookingSent: function(type, data, textStatus, jqXHR) {
+			if (b) {
+				if (data['success']) {
+					book.message(data['success'], 'success', 2000);
+					if (b['data'][type]['draftDiv']) {
+						b['data'][type]['draftFrame'].remove();
+						delete(b['data'][type]['draftFrame']);
+						delete(b['data'][type]['draftDiv']);
+						b['data'][type]['draft']['items'] = [];
+					}
+				} else if (data['error']) {
+					book.message(data['error'], 'error', 4000);
+				} else {
+					book.message('There was an error processing your request. Please try again.', 'error', 4000);
+				}
+			}
+		},
+
+		addItems: function(type, obj, items, remove) {
+			if (obj) {
+				for (i in items) {
+					book.addItem(type, obj, items, i, remove);
+				}
+			}
+		},
+
+		addItem: function(type, obj, items, i, remove) {
 			var z, y;
 
 			obj.append((z = $(document.createElement('div'))));
 			z.append((y = $(document.createElement('a'))));
 			y.html(items[i]['title']);
 			y.attr('href', items[i]['url']);
-			z.append((y = $(document.createElement('a'))));
-			y.html('Remove');
-			y.addClass('remove');
-			//y.click();
+			if (remove) {
+				z.append((y = $(document.createElement('a'))));
+				y.html('Remove');
+				y.addClass('remove');
+				y.click(rFunc(book.removeItem, this, false, type, items, i, z));
+			}
 		},
 
-		addBooking: function(obj, data) {
+		removeItem: function(type, store, i, obj) {
+			if (b) {
+				$.post(b['ajaxurl'] + '?action=bs_remove', { 'bs_removeItem': { 'type': type, 'id': store[i]['id'] }}, rFunc(book.completeRemove, this, true, type, store, i, obj));
+				book.message('Deleting item...', null, 2000);
+			}
+		},
+
+		completeRemove: function(type, store, i, obj, data, textStatus, jqXHR) {
+			if (b) {
+				if (data['success']) {
+					book.message(data['success'], 'success', 2000);
+					delete store[i];
+					obj.remove();
+				} else if (data['error']) {
+					book.message(data['error'], 'error', 4000);
+				} else {
+					book.message('There was an error processing your request. Please try again.', 'error', 4000);
+				}
+			}
+		},
+
+		addBooking: function(type, obj, data, remove) {
 			if (obj) {
 				var d, z, y;
 				for (d in data) {
 					if (data[d]['items']) {
 						// Create div
 						obj.append((z = $(document.createElement('div'))));
-						data[d]['div'] = z;
-						// Create label
+						var label = (data[d]['date'] ? data[d]['date'] : type);
+						data[d]['div'] = createLabelledFrame(obj, label, {
+							'class': 'booking',
+							'frameClass': 'booking',
+							'hideable': true,
+							'hide': true,
+							'toggleLabel': label,
+							'toggleHideLabel': label
+						});
 						
-						z.append((y = $(document.createElement('div'))));
-						book.addItems(y, data[d]['items']);
+						book.addItems(type, data[d]['div'], data[d]['items'], remove);
 					}
 				}
 			}
@@ -437,11 +542,13 @@ var bS = (function() {
 				if (book.frameTimeout[frame]) {
 					clearTimeout(book.frameTimeout[frame]);
 				}
-				book.frameTimeout[frame] = setTimeout(rFunc(function() {
-					b[frame].removeClass('open');
-					book.message();
-					delete book.frameTimeout[frame];
-					}, this, false), time);
+				if (time !== true) {
+					book.frameTimeout[frame] = setTimeout(rFunc(function() {
+						b[frame].removeClass('open');
+						book.message();
+						delete book.frameTimeout[frame];
+						}, this, false), time);
+				}
 			}
 		},
 
@@ -567,22 +674,17 @@ var bS = (function() {
 			 * @param bookings object Current booking information separated
 			 *                 into type (inquiry/booking) then by draft/submitted.
 			 */
-			init: function(id, bookings) {
+			init: function(id, ajaxurl, bookings) {
 				if (!b) {
-					d('setting up booking');
-					
-					console.log(bookings);
-
 					if (bookings) {
 						bookings = JSON.parse(bookings);
 					} else {
 						bookings = {};
 					}
 
-					console.log(bookings);
-
 					b = {
 						'id': id,
+						'ajaxurl': ajaxurl,
 						'pad': $('#' + id),
 						'button': $('#' + id + 'button'),
 						'bookings': $('#' + id + 'bookings'),
@@ -592,19 +694,16 @@ var bS = (function() {
 						'data': {
 								'inquiry': {
 										'draft': {
-											'items': [],
 										},
 										'submitted': [],
 								},
 								'booking': {
 										'draft': {
-											'items': [],
 										},
 										'submitted': [],
 								},
 						}
 					};
-					console.log(b['data']);
 
 					$.extend(true, b['data'], bookings);
 				
@@ -630,13 +729,16 @@ var bS = (function() {
 					// Build data and divs
 					var type;
 					for (type in b['data']) {
-						if (b['data'][type]['draft'] && b['data'][type]['draft']['items'].length) {
-							b['data'][type]['draftDiv'] = book.createDraftFrame(b['draftDiv'], type);
-							book.addItems(b['data'][type]['draftDiv'], b['data'][type]['draft']['items']);
+						if (b['data'][type]['draft'] && b['data'][type]['draft']['items'] && !isEmpty(b['data'][type]['draft']['items'])) {
+							var divs = book.createDraftFrame(b['draftDiv'], type, true);
+							b['data'][type]['draftDiv'] = divs[1];
+							b['data'][type]['draftFrame'] = divs[1];
+
+							book.addItems(type, b['data'][type]['draftDiv'], b['data'][type]['draft']['items'], true);
 						}
 
 						if (b['data'][type]['submitted'].length) {
-							book.addBooking(b['data'][type]['submittedDiv'], b['data'][type]['submitted']);
+							book.addBooking(type, b['data'][type]['submittedDiv'], b['data'][type]['submitted']);
 						}
 					}
 				}
@@ -647,7 +749,7 @@ var bS = (function() {
 					// Send booking request to server
 					book.message('Adding item to your ' + type + '...', null, 2000);
 					var nonce = (new Date().getTime()).toString(16);
-					$.post(ajaxurl + '?action=bs_add', {'bs_add': {'type': type, 'item': { 'id': id}, 'nonce': nonce}}, rFunc(book.add, this, true, type, nonce));
+					$.post(b['ajaxurl'] + '?action=bs_add', {'bs_add': {'type': type, 'item': { 'id': id}, 'nonce': nonce}}, rFunc(book.add, this, true, type, nonce));
 				}
 			},
 		},
