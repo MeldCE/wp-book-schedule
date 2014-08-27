@@ -367,7 +367,9 @@ var bS = (function() {
 					b['data'][type]['draft']['items'][id] = data;
 					// Create div if it hasn't already
 					if (!b['data'][type]['draftDiv']) {
-						b['data'][type]['draftDiv'] = book.createDraftFrame(b['draftDiv'], type);
+						var divs = book.createDraftFrame(b['draftDiv'], type, true);
+						b['data'][type]['draftDiv'] = divs[1];
+						b['data'][type]['draftFrame'] = divs[0];
 					}
 					
 					book.addItem(type, b['data'][type]['draftDiv'], b['data'][type]['draft']['items'], id, true); 
@@ -676,6 +678,8 @@ var bS = (function() {
 			 */
 			init: function(id, ajaxurl, bookings) {
 				if (!b) {
+					console.log(bookings);
+
 					if (bookings) {
 						bookings = JSON.parse(bookings);
 					} else {

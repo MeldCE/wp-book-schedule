@@ -14,6 +14,7 @@ class BookSchedule {
 	protected static $popupInserted = false;
 	protected static $cookie = 'bookschedule';
 	protected static $lp;
+	protected static $options;
 
 	function __destruct() {
 		if (static::$lp) {
@@ -32,7 +33,7 @@ class BookSchedule {
 
 		//static::$lp = fopen('bookSchedule.log', 'a');
 
-		$options = array(
+		static::$options = array(
 				'title' => __('Book Schedule Options', 'book_schedule'),
 				'id' => 'bSOptions',
 				'useTabs' => true,
@@ -192,12 +193,67 @@ class BookSchedule {
 												'type' => 'boolean',
 												'default' => true,
 										),
+										'fromEmail' => array(
+											'title' => __('From Email', 'book_schedule'),
+											'description' => __('Email address to send the alert '
+													. 'and confirmation emails from', 'book_schedule'),
+											'type' => 'text',
+										),
+										'sendAlert' => array(
+											'title' => __('Send Alert Emails To:', 'book_schedule'),
+											'description' => __('If selected, an email will be '
+												 . 'sent to the users of the selected roles everytime '
+												 . 'a new booking is received or a booking is updated.',
+												 'book_schedule'),
+											'type' => 'select',
+											'values' => array(),
+										),
+										'alertSubject' => array(
+											'title' => __('Alert Email Subject',
+													'book_schedule'),
+											'description' => __('Subject of the alert email.',
+													'book_schedule'),
+											'type' => 'text',
+										),
+										'alertEmail' => array(
+											'title' => __('Alert Email', 'book_schedule'),
+											'description' => __('Email to be sent to the people of '
+													. 'the role specified above. %items% will be '
+													. 'replaced with a formatted list of the booked/'
+													. 'inquired items.', 'book_schedule'),
+											'type' => 'formatted',
+										),
+										'sendConfirmation' => array(
+												'title' => __('Send Confirmation Email',
+														'book_schedule'),
+												'description' => __('If this option is checked, the '
+														. 'a confirmation email will be sent to anyone '
+														. 'who submits a new booking/inquiry.',
+														'book_schedule'),
+												'type' => 'boolean',
+												'default' => true,
+										),
+										'confirmationSubject' => array(
+											'title' => __('Confirmation Email Subject',
+													'book_schedule'),
+											'description' => __('Subject of the confirmation email.',
+													'book_schedule'),
+											'type' => 'text',
+										),
+										'confirmationEmail' => array(
+											'title' => __('Confirmation Email', 'book_schedule'),
+											'description' => __('Email to be sent to the person who '
+													. 'submitted the booking/inquiry. %items% will be '
+													. 'replaced with a formatted list of the booked/'
+													. 'inquired items.', 'book_schedule'),
+											'type' => 'formatted',
+										),
 								),
 						),
 				),
 		);
 
-		static::$settings = new WPSettings($options);
+		static::$settings = new WPSettings(static::$options);
 	}
 
 	protected static function &instance() {
@@ -251,7 +307,16 @@ class BookSchedule {
 	 */
 	static function adminInit() {
 		if (!static::$runAdminInit) {
+			require_once( ABSPATH . '/wp-admin/includes/user.php' );
+
 			$me = static::instance();
+	
+			$roles = array('' => '');
+			foreach (get_editable_roles() as $r => $role) {
+				$roles[$r] = $role['name'];
+			}
+			static::$options['settings']['other']['fields']['sendAlert']['values']
+					= $roles;
 
 			add_action('admin_enqueue_scripts', array(&$me, 'adminEnqueue'));
 			add_action('admin_menu', array(&$me, 'adminMenuInit'));
@@ -841,6 +906,52 @@ class BookSchedule {
 		exit;
 	}
 
+	static function  formatEmail($post, $email) {
+		// Get items
+		$data = get_post_meta($post->ID, static::$bookingType, true);
+		$items = '<ul>';
+		foreach ($data['items'] as &$item) {
+			$items .= '<li><a href="' . get_permalink($item['id']) . '">'
+					. get_the_title($item['id']) . '</a></li>';
+		}
+		$items .= '</ul>';
+	}
+
+	static function alertNewBooking($post) {
+		if ($post) {
+			if ($post->post_type == static::$bookingType) {
+
+				if (($role = static::$settings->sendAlert)) {
+					$users = get_users(array(
+							'role' => $role,
+							'fields' => array('display_name', 'user_email')
+							));
+					static::sendEmail($users, static::$settings->alertSubject,
+							static::formatEmail($post, static::$settings->alertEmail));
+				}
+
+				if (static::$settings->sendConfirmation) {
+					// Get submitter user
+					if (($user = get_userdata($post->post_author))) {
+						static::sendEmail(array($users),
+								static::$settings->confirmationSubject,
+								static::formatEmail($post,
+								static::$settings->confirmationEmail));
+					}
+				}
+			}
+		}
+	}
+
+	protected static function sendEmail($users, $subject, $body) {
+		if (($headers = static::$settings->fromEmail)) {
+			$headers = "From: $headers\r\n";
+		}
+		foreach ($users as &$user) {
+			wp_mail($user->user_email, $subject, $body, $headers);
+		}
+	}
+
 	/**
 	 * Retrieves the given additional information for the current post.
 	 * Must be called from inside the loop.
@@ -1028,6 +1139,7 @@ class BookSchedule {
 			);
 		}
 
+
 		$data = array();
 
 		if (($bookings = get_posts($args))) {
@@ -1089,7 +1201,7 @@ class BookSchedule {
 						wp_delete_post($b->ID, true);
 					}
 				} else {
-					if (!isset($grouped[$booking['type']]['submitted'])) {
+					if (!isset($data[$booking['type']]['submitted'])) {
 						$data[$booking['type']]['submitted'] = array();
 					}
 					$data[$booking['type']]['submitted'][] = $booking;
