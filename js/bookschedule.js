@@ -732,7 +732,7 @@ var bS = (function() {
 						if (b['data'][type]['draft'] && b['data'][type]['draft']['items'] && !isEmpty(b['data'][type]['draft']['items'])) {
 							var divs = book.createDraftFrame(b['draftDiv'], type, true);
 							b['data'][type]['draftDiv'] = divs[1];
-							b['data'][type]['draftFrame'] = divs[1];
+							b['data'][type]['draftFrame'] = divs[0];
 
 							book.addItems(type, b['data'][type]['draftDiv'], b['data'][type]['draft']['items'], true);
 						}

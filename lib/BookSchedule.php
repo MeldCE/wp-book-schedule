@@ -436,7 +436,7 @@ class BookSchedule {
 				static::$bookingType, 'normal', 'high');
 				
 		// Booking Status
-		add_meta_box('linkedBooking', __('Linked Bookings ',
+		add_meta_box('bookingStatus', __('Booking Status ',
 				'book_schedule'), array(&$me, 'printStatusMeta'),
 				static::$bookingType, 'normal', 'high');
 	}
@@ -801,10 +801,12 @@ class BookSchedule {
 					$booking['status'] = 'publish';
 					$me->updateBooking($booking);
 					if (isset($data['comment']) && $data['comment']) {
+						$user = wp_get_current_user();
 						$args = array(
 								'comment_post_ID' => $booking['ID'],
 								'comment_content' => $data['comment'],
-								'comment_approved' => 1
+								'comment_approved' => 1,
+								'user_id' => $user->ID,
 						);
 						wp_insert_comment($args);
 					}
