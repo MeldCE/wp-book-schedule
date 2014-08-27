@@ -1,0 +1,91 @@
+div.bsBookingPopup {
+	position: fixed;
+	bottom: 0px;
+	right: 10%;
+	z-index: 100;
+	width: 80%;
+	text-align:right;
+}
+
+div.bsBookingPopup div.button,
+div.bsBookingPopup div.bookingsFrame {
+	color: #eee;
+	background-color: #000;
+}
+
+div.bsBookingPopup div.button {
+	border-top-left-radius: 5px;
+	border-top-right-radius: 5px;
+	display: inline-block;
+	padding: 5px 10px;
+}
+
+div.bsBookingPopup div.bookingsFrame {
+	height: 0px;
+	text-align: left;
+	padding: 0px;
+	border-top-left-radius: 5px;
+	overflow: hidden;
+	-webkit-transition: height 0.8s;
+	-moz-transition: height 0.8s;
+	transition: height 0.8s;
+}
+
+div.bsBookingPopup div.bookingsFrame > div {
+	padding: 10px;
+}
+
+div.bsBookingPopup div.message.error {
+	color: #f00;
+	font-weight: bold;
+}
+
+div.bsBookingPopup div.message.success {
+	color: #0f0;
+	font-weight: bold;
+}
+
+div.bsBookingPopup div.bookings > div {
+	padding: 0px;
+}
+
+div.bsBookingPopup div.bookings div.booking {
+	padding: 5px;
+}
+
+div.bsBookingPopup div.bookingsFrame div.pastBookings > p {
+	margin: 0px;
+}
+
+div.bsBookingPopup div.bookingsFrame div.bookings > div {
+	padding: 0px;
+}
+
+div.bsBookingPopup div.button:hover {
+	cursor: pointer;
+}
+
+div.bsBookingPopup div.items {
+	padding: 10px;
+}
+
+div.bsBookingPopup a {
+	color: #ccc;
+}
+
+div.bsBookingPopup div.items a.remove {
+	color: #aaa;
+	margin-left: 30px;
+}
+
+div.bsBookingPopup div.items a.remove:hover,
+div.bsBookingPopup a:hover {
+	color: #fff;
+	cursor: pointer;
+}
+
+div.bsBookingPopup div.button:hover + div.bookingsFrame,
+div.bsBookingPopup div.bookingsFrame:hover,
+div.bsBookingPopup div.bookingsFrame.open {
+	height: auto;
+}

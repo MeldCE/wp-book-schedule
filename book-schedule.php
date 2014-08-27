@@ -2,7 +2,7 @@
 
 /**
  * Plugin Name: Book and Schedule
- * Plugin URI: http://github.com/weldstudio/wp-book-schedule
+ * Plugin URI: http://www.weldce.com/book-schedule
  * Description: Plugin to allow users to book and schedule events
  * Author: Weld Computer Engineering
  * Author URI: http://www.weldce.com
@@ -31,10 +31,10 @@ if (!class_exists('BookSchedule')) {
 
 			add_action('get_footer', array('BookSchedule', 'printBookingPopup'));
 
-			// Handle AJAX requests (from image browser)
-			//add_action('wp_ajax_gh_gallery', array('BookSchedule', 'ajaxGallery'));
-			//add_action('wp_ajax_gh_save', array('BookSchedule', 'ajaxSave'));
-		
+			// Handle AJAX requests (from bookings)
+			add_action('wp_ajax_bs_add', array('BookSchedule', 'ajaxAdd'));
+			add_action('wp_ajax_nopriv_bs_add', array('BookSchedule', 'ajaxAdd'));
+
 			add_action('init', array('BookSchedule', 'registerPostTypes'));
 			add_action('init', array('BookSchedule', 'checkCookie'));
 			if (is_admin()) {

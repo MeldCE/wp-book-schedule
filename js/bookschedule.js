@@ -24,19 +24,23 @@ var bS = (function() {
 	 * Generates a function that can be used to call a function in the
 	 * current object context
 	 */
-	function returnFunction(func, context) {
+	function rFunc(func, context, include) {
 		// Create an array out of the other pass arguments
 		var a = Array.prototype.slice.call(arguments);
 		// Shift to remove func
 		a.shift();
 		// Shift to remove context
 		a.shift();
+		// Shift to remove include
+		a.shift();
 		return function () {
 			/**
 			 * Append the arguments from the function call to the arguments
-			 * given when returnFunction was called.
+			 * given when rFunc was called.
 			 */
-			a = a.concat(Array.prototype.slice.call(arguments));
+			if (include) {
+				a = a.concat(Array.prototype.slice.call(arguments));
+			}
 			func.apply(context, a);
 		};
 	}
@@ -84,6 +88,119 @@ var bS = (function() {
 	}
 
 	/**
+	 * Toggles the visibility of a given object (using the hide class).
+	 * If a labelObject is given, it will change the HTML of the label
+	 * object to either Show/Hide + label, or if hide is given, hide
+	 * when the object is shown and label when the object is hidden.
+	 *
+	 * @param toggleObject jQueryObject Object to toggle the visibility on.
+	 * @param labelObject jQueryObject Object to change the HTML in.
+	 * @param label string Used for the HTML of the label object. If hide given
+	 *              will be the show label, else will be prepended with
+	 *              Show/Hide.
+	 * @param hide string If given, will be used for the HTML of the label object
+	 *             when the toggled object is shown.
+	 */
+	function toggle(toggleObject, labelObject, label, hide) {
+		console.log(toggleObject);
+		console.log(labelObject);
+		console.log(label);
+		console.log(hide);
+		if (toggleObject) {
+			if (toggleObject.hasClass('hide')) {
+				toggleObject.removeClass('hide');
+				if (labelObject) {
+					if (hide) {
+						labelObject.html(label);
+					} else {
+						labelObject.html('Hide ' + label);
+					}
+				}
+			} else {
+				toggleObject.addClass('hide');
+				if (labelObject) {
+					if (hide) {
+						labelObject.html(hide);
+					} else {
+						labelObject.html('Show ' + label);
+					}
+				}
+			}
+		}
+	}
+	
+	/**
+	 * Create a labelled frame.
+	 *
+	 * @param obj jQueryObject Object to add the frame to.
+	 * @param label string/jQueryObject Frame label.
+	 * @param options Object Object containing any of the following options:
+	 *                class string Class(es) (separated with a space) to add to
+	 *                      the containing div.
+	 *                frameClass string Class(es) (separated with a space) to add
+	 *                           to the frame div.
+	 *                hideable boolean If true, the frame will be hideable.
+	 *                hide boolean If true, the frame will be hidden on
+	 *                     creation.
+	 *                hoverShow boolean If true, frame will be shown when
+	 *                          label is hovered over.
+	 *                labelObject jQueryObject If given, will be the label
+	 *                            object passed to the toggle function. *Must
+	 *                            be set when label is a jQuery Object.
+	 *                toggleLabel string If given, will be passed as the
+	 *                            label to the toggle function. *Must be set
+	 *                            when label is a jQuery Object.
+	 *                toggleHideLabel string If given, will be passed as the
+	 *                                hide label to the toggle function.
+	 * @return jQueryObject of the newly created frame.
+	 */
+	function createLabelledFrame(obj, label, options) {
+		if (obj) {
+			if (!options) {
+				options = {};
+			}
+
+			var z, y, x, w;
+			var stringLabel = (typeof(label) == "string");
+			obj.append((z = $(document.createElement('div'))));
+			if (options['class']) {
+				z.addClass(options['class']);
+			}
+			if (stringLabel) {
+				z.append((w = $(document.createElement('div'))));
+				w.append(label);
+			} else {
+				z.append(label);
+			}
+
+			z.append((x = $(document.createElement('div'))));
+			if (options['frameClass']) {
+				x.addClass(options['frameClass']);
+			}
+
+			if (options['hideable']) {
+				if (options['hide']) {
+					x.addClass('hide');
+				}
+
+				if (options['hoverShow']) {
+					z.addClass('hoverShow');
+				} else {
+					//if (label)
+					// toggle(toggleObject, labelObject, label, hide)
+					z.click(rFunc(toggle, this, false, x,
+							(options['labelObject'] ? options['labelObject'] : (stringLabel ? w : null)),
+							(options['toggleLabel'] ? options['toggleLabel'] : (stringLabel ? label : null)),
+							(options['toggleHideLabel'] ? options['toggleHideLabel'] : null)
+							));
+				}
+			}
+
+			return x;
+		}
+	}
+
+	/**
 	 * Internal functions for costs
 	 */
 	var costs = {
@@ -124,14 +241,14 @@ var bS = (function() {
 				w.addClass('hide');
 				w.append(document.createTextNode('Todo'));
 				// Add toggle function to Help link
-				z.click(returnFunction(this.toggle, this, w));
+				z.click(rFunc(this.toggle, this, false, w));
 				// Create space pad
 				x.append((n['space'] = $(document.createElement('div'))));
 				// Create button
 				x.append((w = $(document.createElement('a'))));
 				w.append(document.createTextNode('Add space'));
 				w.addClass('button');
-				w.click(returnFunction(this.addSpace, this, id, nid));
+				w.click(rFunc(this.addSpace, this, false, id, nid));
 
 				// Costs section
 				n['div'].append((x = $(document.createElement('div'))));
@@ -145,20 +262,20 @@ var bS = (function() {
 				w.addClass('hide');
 				w.append(document.createTextNode('Todo'));
 				// Add toggle function to Help link
-				z.click(returnFunction(this.toggle, this, w));
+				z.click(rFunc(this.toggle, this, false, w));
 				// Create cost pad
 				x.append((n['cost'] = $(document.createElement('div'))));
 				// Create button
 				x.append((w = (n['costButton'] = $(document.createElement('a')))));
 				w.append(document.createTextNode('Add cost option'));
 				w.addClass('button');
-				w.click(returnFunction(this.addCost, this, id, nid));
+				w.click(rFunc(this.addCost, this, false, id, nid));
 
 				// Delete button
 				n['div'].append((x = $(document.createElement('a'))));
 				x.addClass('button');
 				x.append(document.createTextNode('Delete Option'));
-				x.click(returnFunction(costs.del, this, id, nid));
+				x.click(rFunc(costs.del, this, false, id, nid));
 			}
 		},
 
@@ -231,16 +348,141 @@ var bS = (function() {
 	};
 
 	var book = {
-		add: function(bType, type, id, data) {
-			book.showFrame('bookingsFrame', 2000);
+		add: function(type, nonce, data, textStatus, jqXHR) {
+			console.log(data);
+			// Check we have valid data
+			if (data['nonce'] && data['nonce'] == nonce) {
+				// Check if there was an error on the server
+				if (data['error']) {
+					book.message(data['error'], 'error', 4000);
+				} else {
+					var i = b['data'][type]['draft']['items'].push(data);
+					// Create div if it hasn't already
+					if (!b['data'][type]['draftDiv']) {
+						b['data'][type]['draftDiv'] = book.createDraftFrame(b['draftDiv'], type);
+					}
+					
+					book.addItem(b['data'][type]['draftDiv'], b['data'][type]['draft']['items'], i-1); 
+
+					/// @todo language
+					book.message('Item was added to your ' + type + '.', 'success', 2000);
+				}
+			} else {
+				book.message('There was an error processing your request. Please try again.', 'error', 4000);
+			}
 		},
 
-		showFrame: function(frame, time) {
-			if (b[frame] && !b[frame].hasClass('open')) {
-				b[frame].addClass('open');
-				setTimeout(returnFunction(function() { b[frame].removeClass('open'); }, this), time);
+		createDraftFrame: function(obj, type) {
+			if (obj) {
+				var z, y, x;
+				v = createLabelledFrame(obj, 'Current ' + type, {
+					'class': type,
+					'frameClass': 'items',
+				});
+
+				v.append((y = $(document.createElement('div'))));
+				v.append((x = $(document.createElement('a'))));
+				x.html('Submit ' + type);
+				//x.click();
+
+				return y;
 			}
-		}
+		},
+
+		addItems: function(obj, items) {
+			if (obj) {
+				for (i in items) {
+					book.addItem(obj, items, i);
+				}
+			}
+		},
+
+		addItem: function(obj, items, i) {
+			var z, y;
+
+			obj.append((z = $(document.createElement('div'))));
+			z.append((y = $(document.createElement('a'))));
+			y.html(items[i]['title']);
+			y.attr('href', items[i]['url']);
+			z.append((y = $(document.createElement('a'))));
+			y.html('Remove');
+			y.addClass('remove');
+			//y.click();
+		},
+
+		addBooking: function(obj, data) {
+			if (obj) {
+				var d, z, y;
+				for (d in data) {
+					if (data[d]['items']) {
+						// Create div
+						obj.append((z = $(document.createElement('div'))));
+						data[d]['div'] = z;
+						// Create label
+						
+						z.append((y = $(document.createElement('div'))));
+						book.addItems(y, data[d]['items']);
+					}
+				}
+			}
+		},
+
+		frameTimeout: {},
+
+		showFrame: function(frame, time) {
+			if (b && b[frame]) {
+				if (!b[frame].hasClass('open')) {
+					b[frame].addClass('open');
+				}
+				if (book.frameTimeout[frame]) {
+					clearTimeout(book.frameTimeout[frame]);
+				}
+				book.frameTimeout[frame] = setTimeout(rFunc(function() {
+					b[frame].removeClass('open');
+					book.message();
+					delete book.frameTimeout[frame];
+					}, this, false), time);
+			}
+		},
+
+
+		messageClasses: false,
+
+		/**
+		 * Shows a message in the message box.
+		 *
+		 * @param msg string Message to be shown.
+		 * @param cls string Class or classes (separated by spaces) to add to
+		 *            the message box for the duration that the message is
+		 *            shown.
+		 * @param time int If given, the time of which the booking popup will
+		 *             be opened for. If not given, the popup will not be opened.
+		 */
+		message: function(msg, cls, time) {
+			if (b) {
+				// Clear classes
+				if (book.messageClasses) {
+					b['message'].removeClass(book.messageClasses);
+					book.messageClasses = false;
+				}
+
+				if (!msg) { // Clear messages
+					b['message'].html('');
+				} else {
+					b['message'].html(msg);
+
+					if (cls) {
+						b['message'].addClass(cls);
+						book.messageClasses = cls;
+					}
+				}
+
+				// Show frame
+				if (time) {
+					book.showFrame('bookingsFrame', time);
+				}
+			}
+		},
 	};
 
 	return {
@@ -268,7 +510,7 @@ var bS = (function() {
 					y.attr('type', 'checkbox');
 					y.attr('id', gid);
 					y.attr('name', gname);
-					y.change(returnFunction(costs.toggleGlobalCosts, this, id));
+					y.change(rFunc(costs.toggleGlobalCosts, this, false, id));
 					c[id]['pad'].append((c[id]['global'] = $(document.createElement('div'))));
 
 				}
@@ -318,11 +560,26 @@ var bS = (function() {
 		 * bookings and the bookings popup
 		 */
 		book: {
+			/**
+			 * Initialises the booking functionality and the booking popup.
+			 * 
+			 * @param id string Base Id of popup objects.
+			 * @param bookings object Current booking information separated
+			 *                 into type (inquiry/booking) then by draft/submitted.
+			 */
 			init: function(id, bookings) {
 				if (!b) {
 					d('setting up booking');
+					
+					console.log(bookings);
 
-					bookings = JSON.parse(bookings);
+					if (bookings) {
+						bookings = JSON.parse(bookings);
+					} else {
+						bookings = {};
+					}
+
+					console.log(bookings);
 
 					b = {
 						'id': id,
@@ -330,19 +587,67 @@ var bS = (function() {
 						'button': $('#' + id + 'button'),
 						'bookings': $('#' + id + 'bookings'),
 						'bookingsFrame': $('#' + id + 'bookingsFrame'),
+						'message': $('#' + id + 'message'),
 						//'': $('#' + id + ''),
-						'data': bookings
+						'data': {
+								'inquiry': {
+										'draft': {
+											'items': [],
+										},
+										'submitted': [],
+								},
+								'booking': {
+										'draft': {
+											'items': [],
+										},
+										'submitted': [],
+								},
+						}
 					};
-					d(b['data']);
-					if (!b['data'].length) {
-						b['bookings'].html('<p>No bookings or inquiries yet</p>');
+					console.log(b['data']);
+
+					$.extend(true, b['data'], bookings);
+				
+					// Create main divs
+					var w,x,y,z;
+					b['bookings'].append((b['draftDiv'] = $(document.createElement('div'))));
+					b['draftDiv'].addClass('currentBookings');
+
+					b['data']['booking']['submittedDiv'] = createLabelledFrame(b['bookings'], 'Show previous bookings', {
+						'class': 'postBookings',
+						'hideable': true,
+						'hide': true,
+						'toggleLabel': 'previous bookings',
+					});
+					
+					b['data']['inquiry']['submittedDiv'] = createLabelledFrame(b['bookings'], 'Show previous inquiries', {
+						'class': 'postBookings',
+						'hideable': true,
+						'hide': true,
+						'toggleLabel': 'previous inquiries',
+					});
+
+					// Build data and divs
+					var type;
+					for (type in b['data']) {
+						if (b['data'][type]['draft'] && b['data'][type]['draft']['items'].length) {
+							b['data'][type]['draftDiv'] = book.createDraftFrame(b['draftDiv'], type);
+							book.addItems(b['data'][type]['draftDiv'], b['data'][type]['draft']['items']);
+						}
+
+						if (b['data'][type]['submitted'].length) {
+							book.addBooking(b['data'][type]['submittedDiv'], b['data'][type]['submitted']);
+						}
 					}
 				}
 			},
 
-			add: function(bType, type, id) {
-				if (b) {
-					book.showFrame('bookingsFrame', 2000);
+			add: function(type, id) {
+				if (b && type == 'inquiry') {
+					// Send booking request to server
+					book.message('Adding item to your ' + type + '...', null, 2000);
+					var nonce = (new Date().getTime()).toString(16);
+					$.post(ajaxurl + '?action=bs_add', {'bs_add': {'type': type, 'item': { 'id': id}, 'nonce': nonce}}, rFunc(book.add, this, true, type, nonce));
 				}
 			},
 		},
