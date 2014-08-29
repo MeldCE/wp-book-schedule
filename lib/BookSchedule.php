@@ -1269,6 +1269,7 @@ class BookSchedule {
 		$id = uniqid();
 		echo '<div id="' . $id . '"></div>';
 		echo '<script type="text/javascript">'
+				. 'bS.times.init(\'' . $id . '\');'
 				. '</script>';
 	}
 

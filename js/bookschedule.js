@@ -1,8 +1,12 @@
 var bS = (function() {
 	// Private store for costs
 	var c = {};
+	// Private store for times
+	var t = {};
 	// Private store for book
 	var b = false;
+
+
 
 	function error(msg) {
 		console.error('Book Schedule error: ' + msg);
@@ -46,15 +50,15 @@ var bS = (function() {
 	}
 
 	function combineParts(args) {
-		var p, i, parts = [];
+		var a, i, parts = [];
 
-		for (p in parts) {
-			if (p instanceof Array) {
-				for (i in p) {
-					parts.push(i);
+		for (a in args) {
+			if (args[a] instanceof Array) {
+				for (i in args[a]) {
+					parts.push(args[a][i]);
 				}
 			} else {
-				parts.push(p);
+				parts.push(args[a]);
 			}
 		}
 
@@ -352,6 +356,90 @@ var bS = (function() {
 		}
 	};
 
+	var times = {
+		repeats: {
+			day: { ly: 'Daily', ls: 'day(s)' },
+			week: { ly: 'Weekly', ls: 'week(s)' },
+			month: { ly: 'Monthly', ls: 'month(s)' },
+			year: { ly: 'Yearly', ls: 'year(s)' },
+		},
+
+		drawRepeatPad: function(id) {
+			var z, y, i;
+			var type; /// @todo current value
+			t[id]['repeatPad'].html('');
+			console.log('Redrawing pad');
+			if (t[id]['repeat'].attr('checked')) {
+				t[id]['repeatParts'] = {};
+				var parts = t[id]['repeatParts'];
+				t[id]['repeatPad'].html('Repeat ');
+				t[id]['repeatPad'].append(z = $(document.createElement('select')));
+				for (i in times.repeats) {
+					if (!type) type = i;
+					z.append(y = $(document.createElement('option')));
+					y.html(times.repeats[i]['ly']);
+					y.val(i);
+				}
+				z.change(rFunc(times.drawRepeatOn, this, false, id));
+				parts['type'] = z;
+
+				// every
+				t[id]['repeatPad'].append(' every ');
+				t[id]['repeatPad'].append(parts['freq'] = $(document.createElement('input')));
+
+				t[id]['repeatPad'].append(parts['freqLabel'] = $(document.createElement('span')));
+
+				// on the
+				t[id]['repeatPad'].append(parts['onPad'] = $(document.createElement('div')));
+				times.drawRepeatOn(id);
+
+				//t[id]['repeatPad'].append(' until ');
+				//t[id]['repeatPad'].append(data['untilPlace'] = $(document.createElement('span')));
+				//data['untilPlace'].append(repeats[type]['until']);
+			}
+		},
+
+		drawRepeatOn: function(id) {
+			var parts = t[id]['repeatParts'];
+			parts['onPad'].html('');
+			var type = parts['type'].val();
+			console.log('Type of repeat is ' + type);
+			parts['freqLabel'].html(times.repeats[type]['ls']);
+			parts['onPad'].html('');
+			switch (type) {
+				case 'day':
+					break;
+				case 'week':
+					parts['onPad'].append(' on ');
+					var z, d, days = {
+						mon: 'Monday',
+						tue: 'Tuesday',
+						wed: 'Wednesday',
+						thu: 'Thursday',
+						fri: 'Friday',
+						sat: 'Saturday',
+						sun: 'Sunday'
+					};
+					for (d in days) {
+						eid = getId(id, 'repeat', 'on', '');
+						ename = getName(id, 'repeat', 'on');
+						parts['onPad'].append(z = $(document.createElement('input')));
+						z.attr('type', 'checkbox');
+						z.attr('id', eid);
+						z.attr('name', ename);
+						z.val(d);
+						parts['onPad'].append(y = $(document.createElement('label')));
+						y.html(days[d]);
+						y.attr('for', eid);
+						parts['onPad'].append(' ');
+					}
+					break;
+				case 'month':
+				case 'year':
+			}
+		},
+	}
+
 	var book = {
 		add: function(type, nonce, data, textStatus, jqXHR) {
 			// Check we have valid data
@@ -635,6 +723,68 @@ var bS = (function() {
 					costs.addCostDiv(id);
 				}
 			},
+		},
+
+		/**
+		 * Handles the drawing and actions associated with the timing metabox.
+		 *
+		 * Repeating ?
+		 *  y
+		 * Single/multi day
+		 */
+		times: {
+			init: function(id) {
+				if (!t[id]) {
+					d('creating new times section ' + id);
+					t[id] = {
+							'pad': $('#' + id), // Is the main div
+					};
+
+					var x, y, z, eid, ename;
+
+					// Create day specification
+					eid = getId(id, 'multiple');
+					ename = getName(id, 'multiple');
+					console.log(getId(id, 'multiple'));
+					t[id]['pad'].append(z = $(document.createElement('input')));
+					z.attr('type', 'checkbox');
+					console.log(eid);
+					z.attr('id', eid);
+					z.attr('name', ename);
+					t[id]['multiday'] = z;
+					t[id]['pad'].append(y = $(document.createElement('label')));
+					y.html('Multi-day event');
+					y.attr('for', eid);
+
+					t[id]['pad'].append(' ');
+
+					// Create repeat option
+					eid = getId(id, 'repeat');
+					ename = getName(id, 'repeat');
+					t[id]['pad'].append(z = $(document.createElement('input')));
+					z.attr('type', 'checkbox');
+					z.attr('id', eid);
+					z.attr('name', ename);
+					z.change(rFunc(times.drawRepeatPad, this, false, id));
+					t[id]['repeat'] = z;
+					t[id]['pad'].append(y = $(document.createElement('label')));
+					y.html('Repeating event');
+					y.attr('for', eid);
+
+					// Draw repeat pad
+					t[id]['pad'].append(t[id]['repeatPad'] = $(document.createElement('div')));
+					times.drawRepeatPad(id);
+
+					t[id]['pad'].append(t[id]['dayPad'] = $(document.createElement('div')));
+					//times.drawDayPad(id);
+
+					// Create time specification
+					t[id]['pad'].append(t[id]['timePad'] = $(document.createElement('div')));
+					//times.drawTimesPad(id);
+
+
+				}
+			}
 		},
 
 		/**
