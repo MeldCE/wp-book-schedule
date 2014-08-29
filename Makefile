@@ -44,7 +44,7 @@ wp-settings: $(WPSettings)
 js: minifyjs
 
 # Minifying Files
-minify: minifyjs
+minify: minifyjs minifycss
 
 clean-minify: clean-minifyjs clean-minifycss
 
@@ -53,23 +53,20 @@ JSMinFiles=js/bookschedule.js
 minifyjs: $(JSMinFiles:.js,.min.js)
 
 $(JSMinFiles:.js,): %.min.js: %.js
-	echo minify $< > $@
+	minify $< > $@
 
 clean-minifyjs:
 	rm -f $(JSMinFiles:.js,.min.js)
 
 # CSS Files
-#CssMinFiles=css/basicStyle.min.css css/ghierarchy.min.css
-#minifycss: $(CssMinFiles)
+CssMinFiles=css/bookschedule.css
+minifycss: $(CssMinFiles)
 
-#clean-minifycss:
-#	rm -f $(CssMinFiles)
+clean-minifycss:
+	rm -f $(CssMinFiles)
 
-#css/ghierarchy.min.css: css/ghierarchy.css
-#	minify css/ghierarchy.css > css/ghierarchy.min.css
-
-#css/basicStyle.min.css: css/basicStyle.css
-#	minify css/basicStyle.css > css/basicStyle.min.css
+$(CssMinFiles:.css,): %.min.css: %.css
+	minify $< > $@
 
 Files = $(JSFiles) $(coreFiles) $(albumFiles) $(submoduleFiles)
 # Building the release file
