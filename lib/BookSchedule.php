@@ -39,217 +39,222 @@ class BookSchedule {
 				'useTabs' => true,
 				'prefix' => 'bs_',
 				'settings' => array(
-						'items' => array(
-								'title' => __('Items Options', 'book_schedule'),
-								'fields' => array(
-										'version' => array(
-												'type' => 'internal',
-										),
-										'item_types' => array(
-												'title' => __('Item Types', 'book_schedule'),
-												'description' => __('The types of items that will be '
-														. 'bookable.', 'book_schedule'),
-												'type' => 'multiple',
-												'multiple' => true,
-												'fields' => array(
-														'name' => array(
-															'title' => __('Type Name', 'book_schedule'),
+					'items' => array(
+							'title' => __('Items Options', 'book_schedule'),
+							'fields' => array(
+									'version' => array(
+											'type' => 'internal',
+									),
+									'item_types' => array(
+											'title' => __('Item Types', 'book_schedule'),
+											'description' => __('The types of items that will be '
+													. 'bookable.', 'book_schedule'),
+											'type' => 'multiple',
+											'multiple' => true,
+											'fields' => array(
+													'name' => array(
+														'title' => __('Type Name', 'book_schedule'),
+														'description' => __('The name of the type of '
+																. 'item. Should be plural.',
+																'book_schedule'),
+														'type' => 'text',
+													),
+													'slug' => array(
+														'title' => __('Slug Name', 'book_schedule'),
+														'description' => __('A URL-friendly name of the '
+																. 'type of item. It should not contain '
+																. 'spaces or capital letters. Changing '
+																. 'the slug of existing item types will '
+																. 'result in the loss of the current items '
+																. 'of that type.', 'book_schedule'),
+														'type' => 'slug',
+													),
+													'singular' => array(
+														'title' => __('Singular Type Name',
+																'book_schedule'),
+														'description' => __('The singular name of the '
+																. 'type of item.', 'book_schedule'),
+														'type' => 'text',
+													),
+													'description' => array(
+														'title' => __('Type Description',
+																'book_schedule'),
+														'description' => __('The description of the '
+																. 'type.', 'book_schedule'),
+														'type' => 'longtext',
+													),
+													'type' => array(
+														'title' => __('Type of Item', 'book_schedule'),
+														'description' => __('Select what kind of events '
+																. 'these will be. A termed event is an event '
+																. 'that is running continuously and people '
+																. 'can sign up to specific days. A '
+																. '(repeating) event is a single event or '
+																. 'an event that has multiple occurances '
+																. 'and people can sign up to a specific '
+																. 'occurance of that event', 'book_scedule'),
+														'type' => 'select',
+														'values' => array(
+																'termed' => __('Termed Event',
+																	'book_schedule'),
+																'event' => __('(Repeating) Event',
+																	'book_schedule'),
+														),
+													),
+													'additionalInfoFields' => array(
+															'title' => __('Additional Information Fields', 'book_scedule'),
+															'description' => __('Create any additional '
+																	. 'fields you want to be available when '
+																	. 'creating an event of this type',
+																	'book_schedule'),
+															'type' => 'multiple',
+															'multiple' => true,
+															'fields' => array(
+																	'name' => array(
+																			'title' => __('Field Name', 'book_schedule'),
+																			'description' => __('The name of the type of '
+																					. 'item. Should be plural.',
+																					'book_schedule'),
+																			'type' => 'text',
+																	),
+																	'slug' => array(
+																			'title' => __('Slug Name', 'book_schedule'),
+																			'description' => __('A URL-friendly name of the '
+																					. 'type of item. It should not contain '
+																					. 'spaces or capital letters. Changing '
+																					. 'the slug of existing item types will '
+																					. 'result in the loss of the current items '
+																					. 'of that type.', 'book_schedule'),
+																			'type' => 'slug',
+																	),
+																	'type' => array(
+																			'title' => __('Field Type', 'book_schedule'),
+																			'description' => __('The type of field.',
+																					'book_schedule'),
+																			'type' => 'select',
+																			'values' => array(
+																				'text' => 'Text',
+																				'formatted' => 'Formatted Text',
+																			)
+																	)
+															),
+													),
+											)
+									),
+									/*'additionalTaxonamies' => array(
+											'title' => __('Additional Taxonamies', 'book_scedule'),
+											'description' => __('Create any taxonamies '
+													. 'you want to be available for this '
+													. 'type of item',
+													'book_schedule'),
+											'type' => 'multiple',
+											'multiple' => true,
+											'fields' => array(
+													'name' => array(
+															'title' => __('Taxonamy Name', 'book_schedule'),
 															'description' => __('The name of the type of '
 																	. 'item. Should be plural.',
 																	'book_schedule'),
 															'type' => 'text',
-														),
-														'slug' => array(
+													),
+													'slug' => array(
 															'title' => __('Slug Name', 'book_schedule'),
 															'description' => __('A URL-friendly name of the '
-																	. 'type of item. It should not contain '
+																	. 'taxonamy. It should not contain '
 																	. 'spaces or capital letters. Changing '
 																	. 'the slug of existing item types will '
 																	. 'result in the loss of the current items '
 																	. 'of that type.', 'book_schedule'),
 															'type' => 'slug',
-														),
-														'singular' => array(
-															'title' => __('Singular Type Name',
+													),
+													'hierarchical' => array(
+															'title' => __('Hierarchical', 'book_schedule'),
+															'description' => __('Whether or not '
+																	. 'taxonamy should be hierarchical.',
 																	'book_schedule'),
-															'description' => __('The singular name of the '
-																	. 'type of item.', 'book_schedule'),
-															'type' => 'text',
-														),
-														'description' => array(
-															'title' => __('Type Description',
-																	'book_schedule'),
-															'description' => __('The description of the '
-																	. 'type.', 'book_schedule'),
-															'type' => 'longtext',
-														),
-														'type' => array(
-															'title' => __('Type of Item', 'book_schedule'),
-															'description' => __('Select what kind of events '
-																	. 'these will be. A termed event is an event '
-																	. 'that is running continuously and people '
-																	. 'can sign up to specific days. A '
-																	. '(repeating) event is a single event or '
-																	. 'an event that has multiple occurances '
-																	. 'and people can sign up to a specific '
-																	. 'occurance of that event', 'book_scedule'),
-															'type' => 'select',
-															'values' => array(
-																	'termed' => __('Termed Event',
-																		'book_schedule'),
-																	'event' => __('(Repeating) Event',
-																		'book_schedule'),
-															),
-														),
-														'additionalInfoFields' => array(
-																'title' => __('Additional Information Fields', 'book_scedule'),
-																'description' => __('Create any additional '
-																		. 'fields you want to be available when '
-																		. 'creating an event of this type',
-																		'book_schedule'),
-																'type' => 'multiple',
-																'multiple' => true,
-																'fields' => array(
-																		'name' => array(
-																				'title' => __('Field Name', 'book_schedule'),
-																				'description' => __('The name of the type of '
-																						. 'item. Should be plural.',
-																						'book_schedule'),
-																				'type' => 'text',
-																		),
-																		'slug' => array(
-																				'title' => __('Slug Name', 'book_schedule'),
-																				'description' => __('A URL-friendly name of the '
-																						. 'type of item. It should not contain '
-																						. 'spaces or capital letters. Changing '
-																						. 'the slug of existing item types will '
-																						. 'result in the loss of the current items '
-																						. 'of that type.', 'book_schedule'),
-																				'type' => 'slug',
-																		),
-																		'type' => array(
-																				'title' => __('Field Type', 'book_schedule'),
-																				'description' => __('The type of field.',
-																						'book_schedule'),
-																				'type' => 'select',
-																				'values' => array(
-																					'text' => 'Text',
-																					'formatted' => 'Formatted Text',
-																				)
-																		)
-																),
-														),
-												)
-										),
-										/*'additionalTaxonamies' => array(
-												'title' => __('Additional Taxonamies', 'book_scedule'),
-												'description' => __('Create any taxonamies '
-														. 'you want to be available for this '
-														. 'type of item',
-														'book_schedule'),
-												'type' => 'multiple',
-												'multiple' => true,
-												'fields' => array(
-														'name' => array(
-																'title' => __('Taxonamy Name', 'book_schedule'),
-																'description' => __('The name of the type of '
-																		. 'item. Should be plural.',
-																		'book_schedule'),
-																'type' => 'text',
-														),
-														'slug' => array(
-																'title' => __('Slug Name', 'book_schedule'),
-																'description' => __('A URL-friendly name of the '
-																		. 'taxonamy. It should not contain '
-																		. 'spaces or capital letters. Changing '
-																		. 'the slug of existing item types will '
-																		. 'result in the loss of the current items '
-																		. 'of that type.', 'book_schedule'),
-																'type' => 'slug',
-														),
-														'hierarchical' => array(
-																'title' => __('Hierarchical', 'book_schedule'),
-																'description' => __('Whether or not '
-																		. 'taxonamy should be hierarchical.',
-																		'book_schedule'),
-																'type' => 'boolean',
-														)
-												),
-										),*/
-								)
+															'type' => 'boolean',
+													)
+											),
+									),*/
+							)
+					),
+					'emails' => array(
+						'title' => __('Email Options', 'book_schedule'),
+						'fields' => array(
+							'fromEmail' => array(
+								'title' => __('From Email', 'book_schedule'),
+								'description' => __('Email address to send the alert '
+										. 'and confirmation emails from', 'book_schedule'),
+								'type' => 'text',
+							),
+							'sendAlert' => array(
+								'title' => __('Send Alert Emails To:', 'book_schedule'),
+								'description' => __('If selected, an email will be '
+									 . 'sent to the users of the selected roles everytime '
+									 . 'a new booking is received or a booking is updated.',
+									 'book_schedule'),
+								'type' => 'select',
+								'values' => array(),
+							),
+							'alertSubject' => array(
+								'title' => __('Alert Email Subject',
+										'book_schedule'),
+								'description' => __('Subject of the alert email.',
+										'book_schedule'),
+								'type' => 'text',
+							),
+							'alertEmail' => array(
+								'title' => __('Alert Email', 'book_schedule'),
+								'description' => __('Email to be sent to the people of '
+										. 'the role specified above. %items% will be '
+										. 'replaced with a formatted list of the booked/'
+										. 'inquired items.', 'book_schedule'),
+								'type' => 'formatted',
+							),
+							'sendConfirmation' => array(
+									'title' => __('Send Confirmation Email',
+											'book_schedule'),
+									'description' => __('If this option is checked, the '
+											. 'a confirmation email will be sent to anyone '
+											. 'who submits a new booking/inquiry.',
+											'book_schedule'),
+									'type' => 'boolean',
+									'default' => true,
+							),
+							'confirmationSubject' => array(
+								'title' => __('Confirmation Email Subject',
+										'book_schedule'),
+								'description' => __('Subject of the confirmation email.',
+										'book_schedule'),
+								'type' => 'text',
+							),
+							'confirmationEmail' => array(
+								'title' => __('Confirmation Email', 'book_schedule'),
+								'description' => __('Email to be sent to the person who '
+										. 'submitted the booking/inquiry. %items% will be '
+										. 'replaced with a formatted list of the booked/'
+										. 'inquired items.', 'book_schedule'),
+								'type' => 'formatted',
+							),
 						),
-						'other' => array(
-								'title' => __('Other Options', 'book_schedule'),
-								'fields' => array(
-										'version' => array(
-												'type' => 'internal',
-										),
-										'showPopup' => array(
-												'title' => __('Show booking pop-up', 'book_schedule'),
-												'description' => __('If this option is checked, the '
-														. 'booking popup, showing currently selected '
-														. 'items will be displayed on over page.',
-														'book_schedule'),
-												'type' => 'boolean',
-												'default' => true,
-										),
-										'fromEmail' => array(
-											'title' => __('From Email', 'book_schedule'),
-											'description' => __('Email address to send the alert '
-													. 'and confirmation emails from', 'book_schedule'),
-											'type' => 'text',
-										),
-										'sendAlert' => array(
-											'title' => __('Send Alert Emails To:', 'book_schedule'),
-											'description' => __('If selected, an email will be '
-												 . 'sent to the users of the selected roles everytime '
-												 . 'a new booking is received or a booking is updated.',
-												 'book_schedule'),
-											'type' => 'select',
-											'values' => array(),
-										),
-										'alertSubject' => array(
-											'title' => __('Alert Email Subject',
-													'book_schedule'),
-											'description' => __('Subject of the alert email.',
-													'book_schedule'),
-											'type' => 'text',
-										),
-										'alertEmail' => array(
-											'title' => __('Alert Email', 'book_schedule'),
-											'description' => __('Email to be sent to the people of '
-													. 'the role specified above. %items% will be '
-													. 'replaced with a formatted list of the booked/'
-													. 'inquired items.', 'book_schedule'),
-											'type' => 'formatted',
-										),
-										'sendConfirmation' => array(
-												'title' => __('Send Confirmation Email',
-														'book_schedule'),
-												'description' => __('If this option is checked, the '
-														. 'a confirmation email will be sent to anyone '
-														. 'who submits a new booking/inquiry.',
-														'book_schedule'),
-												'type' => 'boolean',
-												'default' => true,
-										),
-										'confirmationSubject' => array(
-											'title' => __('Confirmation Email Subject',
-													'book_schedule'),
-											'description' => __('Subject of the confirmation email.',
-													'book_schedule'),
-											'type' => 'text',
-										),
-										'confirmationEmail' => array(
-											'title' => __('Confirmation Email', 'book_schedule'),
-											'description' => __('Email to be sent to the person who '
-													. 'submitted the booking/inquiry. %items% will be '
-													. 'replaced with a formatted list of the booked/'
-													. 'inquired items.', 'book_schedule'),
-											'type' => 'formatted',
-										),
-								),
+					),
+					'other' => array(
+						'title' => __('Other Options', 'book_schedule'),
+						'fields' => array(
+							'version' => array(
+								'type' => 'internal',
+							),
+							'showPopup' => array(
+								'title' => __('Show booking pop-up', 'book_schedule'),
+								'description' => __('If this option is checked, the '
+										. 'booking popup, showing currently selected '
+										. 'items will be displayed on over page.',
+										'book_schedule'),
+								'type' => 'boolean',
+								'default' => true,
+							),
 						),
+					),
 				),
 		);
 
@@ -315,7 +320,7 @@ class BookSchedule {
 			foreach (get_editable_roles() as $r => $role) {
 				$roles[$r] = $role['name'];
 			}
-			static::$options['settings']['other']['fields']['sendAlert']['values']
+			static::$options['settings']['emails']['fields']['sendAlert']['values']
 					= $roles;
 
 			add_action('admin_enqueue_scripts', array(&$me, 'adminEnqueue'));
@@ -514,6 +519,8 @@ class BookSchedule {
 		static::enqueue();
 		wp_enqueue_script('wpsettings', 
 				plugins_url('/lib/wp-settings/js/wpsettings.min.js', dirname(__FILE__)));
+		wp_enqueue_style('wpsettings', 
+				plugins_url('/lib/wp-settings/css/wpsettings.min.css', dirname(__FILE__)));
 		/// @todo @see http://codex.wordpress.org/I18n_for_WordPress_Developers
 		wp_enqueue_script('book-schedule', 
 				plugins_url('/js/bookschedule.js', dirname(__FILE__)));

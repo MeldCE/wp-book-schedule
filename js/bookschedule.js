@@ -91,6 +91,84 @@ var bS = (function() {
 		}
 	}
 
+	function setInputType(obj, type) {
+		// Check for faking it
+		var faking;
+		obj.attr('type', 'faketype');
+
+		if (obj.attr('type') == 'fakelog') {
+			faking = true;
+		}
+
+		obj.attr('type', type);
+
+		if (!faking) {
+			if (obj.attr('type') == type) {
+				return true;
+			} else {
+				return false;
+			}
+		} else {
+			return null;
+		}
+	}
+
+	function createDate(date, time, range) {
+		var f, field;
+		if (date || time) {
+			if (range) {
+				field = [
+					$(document.createElement('input')),
+					$(document.createElement('input'))
+				];
+			} else {
+				field = $(document.createElement('input'));
+			}
+		} else {
+			return null;
+		}
+
+		if (range) {
+			if (date && time) {
+				//if (!setInputType(field, 'datetime')) {
+					$.timepicker.datetimeRange(field[0], field[1], {
+						timeFormat: 'HH:mm',
+						stepMinute: 5
+					});
+				//}
+			} else if (date) {
+				//field.attr('type', 'date');
+				$.timepicker.dateRange(field[0], field[1]);
+			} else if (time) {
+				//field.attr('type', 'time');
+				$.timepicker.timerange(field[0], field[1], {
+					timeFormat: 'HH:mm',
+					stepMinute: 5
+				});
+			}
+		} else {
+			if (date && time) {
+				//if (!setInputType(field, 'datetime')) {
+					field.datetimepicker({
+						timeFormat: 'HH:mm',
+						stepMinute: 5
+					});
+				//}
+			} else if (date) {
+				//field.attr('type', 'date');
+				field.datepicker();
+			} else if (time) {
+				//field.attr('type', 'time');
+				field.timepicker({
+					timeFormat: 'HH:mm',
+					stepMinute: 5
+				});
+			}
+		}
+
+		return field;
+	}
+
 	/**
 	 * Toggles the visibility of a given object (using the hide class).
 	 * If a labelObject is given, it will change the HTML of the label
@@ -365,37 +443,43 @@ var bS = (function() {
 		},
 
 		drawRepeatPad: function(id) {
-			var z, y, i;
-			var type; /// @todo current value
-			t[id]['repeatPad'].html('');
-			console.log('Redrawing pad');
-			if (t[id]['repeat'].attr('checked')) {
-				t[id]['repeatParts'] = {};
-				var parts = t[id]['repeatParts'];
-				t[id]['repeatPad'].html('Repeat ');
-				t[id]['repeatPad'].append(z = $(document.createElement('select')));
-				for (i in times.repeats) {
-					if (!type) type = i;
-					z.append(y = $(document.createElement('option')));
-					y.html(times.repeats[i]['ly']);
-					y.val(i);
+			if (times.valuesChanged(id, true, 'repeat')) {
+				var z, y, i;
+				var type; /// @todo current value
+				t[id]['repeatPad'].html('');
+				console.log('Redrawing pad');
+				if (times.value(id, 'repeat')) {
+					t[id]['repeatParts'] = {};
+					var parts = t[id]['repeatParts'];
+					t[id]['repeatPad'].html('Repeat ');
+					t[id]['repeatPad'].append(z = $(document.createElement('select')));
+					for (i in times.repeats) {
+						if (!type) type = i;
+						z.append(y = $(document.createElement('option')));
+						y.html(times.repeats[i]['ly']);
+						y.val(i);
+					}
+					z.change(rFunc(times.drawRepeatOn, this, false, id));
+					parts['type'] = z;
+
+					// every
+					t[id]['repeatPad'].append(' every ');
+					t[id]['repeatPad'].append(parts['freq'] = $(document.createElement('input')));
+
+					t[id]['repeatPad'].append(parts['freqLabel'] = $(document.createElement('span')));
+
+					// on the
+					t[id]['repeatPad'].append(parts['onPad'] = $(document.createElement('div')));
+					times.drawRepeatOn(id);
+
+					//t[id]['repeatPad'].append(' until ');
+					//t[id]['repeatPad'].append(data['untilPlace'] = $(document.createElement('span')));
+					//data['untilPlace'].append(repeats[type]['until']);
+
 				}
-				z.change(rFunc(times.drawRepeatOn, this, false, id));
-				parts['type'] = z;
 
-				// every
-				t[id]['repeatPad'].append(' every ');
-				t[id]['repeatPad'].append(parts['freq'] = $(document.createElement('input')));
-
-				t[id]['repeatPad'].append(parts['freqLabel'] = $(document.createElement('span')));
-
-				// on the
-				t[id]['repeatPad'].append(parts['onPad'] = $(document.createElement('div')));
-				times.drawRepeatOn(id);
-
-				//t[id]['repeatPad'].append(' until ');
-				//t[id]['repeatPad'].append(data['untilPlace'] = $(document.createElement('span')));
-				//data['untilPlace'].append(repeats[type]['until']);
+				times.drawDayPad(id);
+				times.refreshPreviousValues(id, 'repeat');
 			}
 		},
 
@@ -438,7 +522,154 @@ var bS = (function() {
 				case 'year':
 			}
 		},
-	}
+
+		drawDayPad: function(id) {
+			var p = t[id]['dayPad'], z;
+			p.html('');
+
+			console.log('Drawing day pad');
+
+			if (times.value(id, 'multiday', true)) { // Multi-day
+				if (times.value(id, 'repeat')) { // Repeating
+					p.append('Number of days: ');
+					p.append(z = $(document.createElement('input')));
+					z.attr('type', 'number');
+				} else {
+					p.append('Dates: ');
+					var fields = createDate(true, false, true);
+					p.append(fields[0], ' - ', fields[1]);
+				}
+			} else { // Single-day
+				if (times.value(id, 'repeat')) { // Repeating
+				} else {
+					p.append('Date: ');
+					p.append(createDate(true));
+				}
+			}
+			
+			times.drawTimesPad(id);
+		},
+
+		drawTimesPad: function(id) {
+			var p = t[id]['timePad'], c = t[id]['timeChecksPad'], z, y, eid, ename;
+			
+			if (times.valuesChanged(id, true, 'multiday')) {
+				c.html('');
+				
+				if (times.value(id, 'multiday', true) && !times.value(id, 'allDay', true)) {
+					// Specify times per day
+					eid = getId(id, 'timePerDay');
+					ename = getName(id, 'timePerDay');
+					c.append(y = $(document.createElement('input')));
+					y.attr('type', 'checkbox');
+					y.attr('id', eid);
+					y.attr('name', ename);
+					y.change(rFunc(times.drawTimesPad, this, false, id));
+					t[id]['timePerDay'] = y;
+					c.append(y = $(document.createElement('label')));
+					y.html('Specify times for each day');
+					y.attr('for', eid);
+				}
+			}
+
+			if (times.valuesChanged(id, true, 'multiday', 'allDay')) {
+				p.html('');
+			}
+
+			times.refreshPreviousValues(id, 'multiday', 'allDay');
+		},
+
+		valuesChanged: function(id) {
+			var s, update, changed = false;
+			var args = Array.prototype.slice.call(arguments);
+			args.shift();
+			if (args[0] === true) {
+				update = true;
+				args.shift();
+			}
+
+			if (!t[id]['storedValues']) {
+				t[id]['storedValues'] = {};
+				if (!update) return true;
+			}
+
+			for (s in args) {
+				if (t[id][args[s]] && t[id][args[s]].attr) {
+					switch(t[id][args[s]].attr('type')) {
+						case 'checkbox':
+							if (typeof(t[id]['storedValues'][args[s]]) === 'undefined' ||
+									update) {
+								console.log('updating stored of ' + args[s]);
+								t[id]['storedValues'][args[s]] = t[id][args[s]].attr('checked');
+							}
+							break;
+						default:
+							if (typeof(t[id]['storedValues'][args[s]]) === 'undefined' ||
+									update) {
+								console.log('updating stored of ' + args[s]);
+								t[id]['storedValues'][args[s]] = t[id][args[s]].val();
+							}
+							break;
+					}
+
+					console.log('stored ' + args[s] + ': ' + t[id]['storedValues'][args[s]]);
+					console.log('previous ' + args[s] + ': ' + t[id]['previousValues'][args[s]]);
+
+					if ((t[id]['storedValues'][args[s]] && !t[id]['previousValues'][args[s]]) 
+							|| (!t[id]['storedValues'][args[s]] && t[id]['previousValues'][args[s]])) {
+						changed = true;
+					}
+				}
+			}
+
+			console.log(t[id]['storedValues']);
+			if (changed) console.log('changed');
+			else console.log('no change');
+			return changed;
+		},
+
+		refreshPreviousValues: function(id) {
+			var s;
+			var args = Array.prototype.slice.call(arguments);
+			args.shift();
+
+			if (!t[id]['storedValues']) {
+				t[id]['storedValues'] = {};
+			}
+			if (!t[id]['previousValues']) {
+				t[id]['previousValues'] = {};
+			}
+
+			for (s in args) {
+				if (typeof(t[id]['storedValues'][args[s]]) !== 'undefined') {
+					t[id]['previousValues'][args[s]] = t[id]['storedValues'][args[s]];
+				} else if (t[id]['previousValues'][args[s]]) {
+					delete(t[id]['previousValues'][args[s]]);
+				}
+			}
+		},
+
+		value: function(id, value, update) {
+			if (typeof(t[id]['storedValues'][value]) === 'undefined' || update) {
+				if (t[id][value] && t[id][value].attr) {
+					switch(t[id][value].attr('type')) {
+						case 'checkbox':
+							t[id]['storedValues'][value] = t[id][value].attr('checked');
+							break;
+						default:
+							t[id]['storedValues'][value] = t[id][value].val();
+							break;
+					}
+				} else {
+					return null;
+				}
+			}
+
+			console.log(value + ': ' + t[id]['storedValues'][value]);
+
+			return t[id]['storedValues'][value];
+		},
+	};
 
 	var book = {
 		add: function(type, nonce, data, textStatus, jqXHR) {
@@ -738,6 +969,10 @@ var bS = (function() {
 					d('creating new times section ' + id);
 					t[id] = {
 							'pad': $('#' + id), // Is the main div
+							'multiday': null, // Multiday checkbox
+							'storedValues' : {},
+							'previousValues': {},
+
 					};
 
 					var x, y, z, eid, ename;
@@ -751,6 +986,7 @@ var bS = (function() {
 					console.log(eid);
 					z.attr('id', eid);
 					z.attr('name', ename);
+					z.change(rFunc(times.drawDayPad, this, false, id));
 					t[id]['multiday'] = z;
 					t[id]['pad'].append(y = $(document.createElement('label')));
 					y.html('Multi-day event');
@@ -773,16 +1009,32 @@ var bS = (function() {
 
 					// Draw repeat pad
 					t[id]['pad'].append(t[id]['repeatPad'] = $(document.createElement('div')));
-					times.drawRepeatPad(id);
 
 					t[id]['pad'].append(t[id]['dayPad'] = $(document.createElement('div')));
-					//times.drawDayPad(id);
 
 					// Create time specification
-					t[id]['pad'].append(t[id]['timePad'] = $(document.createElement('div')));
-					//times.drawTimesPad(id);
+					t[id]['pad'].append(z = $(document.createElement('div')));
+					z.html('Times: ');
+					
+					// All Day
+					eid = getId(id, 'allDay');
+					ename = getName(id, 'allDay');
+					z.append(y = $(document.createElement('input')));
+					y.attr('type', 'checkbox');
+					y.attr('id', eid);
+					y.attr('name', ename);
+					y.change(rFunc(times.drawTimesPad, this, false, id));
+					t[id]['allDay'] = y;
+					z.append(y = $(document.createElement('label')));
+					y.html('All day event');
+					y.attr('for', eid);
+					z.append(' ');
 
-
+					z.append(t[id]['timeChecksPad'] = $(document.createElement('span')));
+					
+					z.append(t[id]['timePad'] = $(document.createElement('div')));
+					
+					times.drawRepeatPad(id);
 				}
 			}
 		},
