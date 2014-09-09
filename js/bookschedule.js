@@ -397,8 +397,8 @@ var bS = (function() {
 		},
 
 		addSpace: function(id, nid) {
-			if (id && c[id][nid]) {
-				var n = c[id][nid]; // Easy reference to cost storage
+			if (id && c[id]['costs'][nid]) {
+				var n = c[id]['costs'][nid]; // Easy reference to cost storage
 				var sid;
 				do {
 					sid = (new Date().getTime()).toString(16);
@@ -431,6 +431,30 @@ var bS = (function() {
 		},
 
 		addCost: function(id, nid) {
+			if (id && c[id]['costs'][nid]) {
+				var n = c[id]['costs'][nid]; // Easy reference to cost storage
+				var sid;
+				do {
+					sid = (new Date().getTime()).toString(16);
+				} while (n['costs'][sid]);
+
+				n['spaces'][sid] = {};
+
+				var w,x,y,z;
+				n['space'].append(((z = (n['spaces'][sid]['div'] = $(document.createElement('div'))))));
+				z.append((w = $(document.createElement('div'))));
+				w.append(document.createTextNode('Label: '));
+				w.append((x = $(document.createElement('input'))));
+				z.append((w = $(document.createElement('div'))));
+				w.append(document.createTextNode(' Price: '));
+				w.append((x = $(document.createElement('input'))));
+				x.attr('type', 'number');
+				z.append((x = $(document.createElement('a'))));
+				x.addClass('button');
+				x.append(document.createTextNode('Delete Cost'));
+			} else {
+				console.log('Not found');
+			}
 		}
 	};
 
@@ -442,59 +466,101 @@ var bS = (function() {
 			year: { ly: 'Yearly', ls: 'year(s)' },
 		},
 
-		drawRepeatPad: function(id) {
-			if (times.valuesChanged(id, true, 'repeat')) {
-				var z, y, i;
-				var type; /// @todo current value
-				t[id]['repeatPad'].html('');
-				console.log('Redrawing pad');
-				if (times.value(id, 'repeat')) {
-					t[id]['repeatParts'] = {};
-					var parts = t[id]['repeatParts'];
-					t[id]['repeatPad'].html('Repeat ');
-					t[id]['repeatPad'].append(z = $(document.createElement('select')));
-					for (i in times.repeats) {
-						if (!type) type = i;
-						z.append(y = $(document.createElement('option')));
-						y.html(times.repeats[i]['ly']);
-						y.val(i);
+		/**
+		 * Draws and manages a repeat object
+		 *
+		 * @param id string ID of times objects
+		 * @param obj jQueryDOMObject DOM to append the repeat to
+		 * @param label string Label for the repeat checkbox
+		 * @param func function Will be called when the checkbox value is changed
+		 *
+		 * @returns object Object containing the repeat parts
+		 */
+		addRepeat: function(id, obj, label, func) {
+			if (t[id]) {
+				var store = {};
+				var eid = getId(id, 'repeat');
+				var ename = getName(id, 'repeat');
+				var z, y;
+
+				if (label) {
+					obj.append(z = $(document.createElement('input')));
+					z.attr('type', 'checkbox');
+					z.attr('id', eid);
+					z.attr('name', ename);
+					z.change(rFunc(times.drawRepeatPad, this, false, id, store));
+					store.checkbox = z;
+					store.checkboxValue = false;
+					obj.append(y = $(document.createElement('label')));
+					y.html(label);
+					y.attr('for', eid);
+
+					if (func) {
+						store.func = func;
 					}
-					z.change(rFunc(times.drawRepeatOn, this, false, id));
-					parts['type'] = z;
-
-					// every
-					t[id]['repeatPad'].append(' every ');
-					t[id]['repeatPad'].append(parts['freq'] = $(document.createElement('input')));
-
-					t[id]['repeatPad'].append(parts['freqLabel'] = $(document.createElement('span')));
-
-					// on the
-					t[id]['repeatPad'].append(parts['onPad'] = $(document.createElement('div')));
-					times.drawRepeatOn(id);
-
-					//t[id]['repeatPad'].append(' until ');
-					//t[id]['repeatPad'].append(data['untilPlace'] = $(document.createElement('span')));
-					//data['untilPlace'].append(repeats[type]['until']);
-
 				}
 
-				times.drawDayPad(id);
-				times.refreshPreviousValues(id, 'repeat');
+				// Create repeat pad
+				obj.append(store.pad = $(document.createElement('div')));
+
+				// Draw repeat pad
+				times.drawRepeatPad(id, store);
+				
+				return store;
 			}
 		},
 
-		drawRepeatOn: function(id) {
-			var parts = t[id]['repeatParts'];
-			parts['onPad'].html('');
-			var type = parts['type'].val();
+		drawRepeatPad: function(id, store) {
+			var z, y, i;
+			var type; /// @todo current value
+			if (!store.checkbox ||
+					(store.checkbox.attr('checked') ? true : false) !== store.checkboxValue) {
+				console.log('Redrawing pad');
+				store.checkboxValue = (store.checkbox.attr('checked') ? true : false);
+				var pad = store.pad;
+				pad.html('Repeat ');
+				pad.append(z = $(document.createElement('select')));
+				for (i in times.repeats) {
+					if (!type) type = i;
+					z.append(y = $(document.createElement('option')));
+					y.html(times.repeats[i]['ly']);
+					y.val(i);
+				}
+				z.change(rFunc(times.drawRepeatOn, this, false, id, store));
+				store.type = z;
+
+				// every
+				pad.append(' every ');
+				pad.append(store.freq = $(document.createElement('input')));
+
+				pad.append(store.freqLabel = $(document.createElement('span')));
+
+				// on the
+				pad.append(store.onPad = $(document.createElement('div')));
+				
+				// Draw on the
+				times.drawRepeatOn(id, store);
+
+				//t[id]['repeatPad'].append(' until ');
+				//t[id]['repeatPad'].append(data['untilPlace'] = $(document.createElement('span')));
+				//data['untilPlace'].append(repeats[type]['until']);
+
+				if (store.func) {
+					store.func.call(this, id);
+				}
+			}
+		},
+
+		drawRepeatOn: function(id, store) {
+			store.onPad.html('');
+			var type = store.type.val();
 			console.log('Type of repeat is ' + type);
-			parts['freqLabel'].html(times.repeats[type]['ls']);
-			parts['onPad'].html('');
+			store.freqLabel.html(times.repeats[type]['ls']);
 			switch (type) {
 				case 'day':
 					break;
 				case 'week':
-					parts['onPad'].append(' on ');
+					store.onPad.append(' on ');
 					var z, d, days = {
 						mon: 'Monday',
 						tue: 'Tuesday',
@@ -507,15 +573,15 @@ var bS = (function() {
 					for (d in days) {
 						eid = getId(id, 'repeat', 'on', '');
 						ename = getName(id, 'repeat', 'on');
-						parts['onPad'].append(z = $(document.createElement('input')));
+						store.onPad.append(z = $(document.createElement('input')));
 						z.attr('type', 'checkbox');
 						z.attr('id', eid);
 						z.attr('name', ename);
 						z.val(d);
-						parts['onPad'].append(y = $(document.createElement('label')));
+						store.onPad.append(y = $(document.createElement('label')));
 						y.html(days[d]);
 						y.attr('for', eid);
-						parts['onPad'].append(' ');
+						store.onPad.append(' ');
 					}
 					break;
 				case 'month':
@@ -524,13 +590,13 @@ var bS = (function() {
 		},
 
 		drawDayPad: function(id) {
-			var p = t[id]['dayPad'], z;
+			var p = t[id].dayPad, z;
 			p.html('');
 
 			console.log('Drawing day pad');
 
-			if (times.value(id, 'multiday', true)) { // Multi-day
-				if (times.value(id, 'repeat')) { // Repeating
+			if (t[id].multiday.attr('checked')) { // Multi-day
+				if (t[id].repeat.checkbox.attr('checked')) { // Repeating
 					p.append('Number of days: ');
 					p.append(z = $(document.createElement('input')));
 					z.attr('type', 'number');
@@ -540,7 +606,7 @@ var bS = (function() {
 					p.append(fields[0], ' - ', fields[1]);
 				}
 			} else { // Single-day
-				if (times.value(id, 'repeat')) { // Repeating
+				if (t[id].repeat.checkbox.attr('checked')) { // Repeating
 				} else {
 					p.append('Date: ');
 					p.append(createDate(true));
@@ -574,9 +640,59 @@ var bS = (function() {
 
 			if (times.valuesChanged(id, true, 'multiday', 'allDay')) {
 				p.html('');
+
+				// Write time boxes if not 
+				if (!times.value(id, 'allDay')) {
+					//if (
+				}
 			}
 
 			times.refreshPreviousValues(id, 'multiday', 'allDay');
+		},
+
+		drawExclusionsPad: function(id, label, buttonLabel) {
+			if (t[id] && t[id].exclusionPad) {
+				var pad = t[id].exclusionPad;
+				var parts = (t[id].exclusionParts = { exclusions: [] });
+				var z;
+
+				pad.html(label);
+
+				// Create place for exclusions
+				pad.append(parts.pad = $(document.createElement('div')));
+
+				// Create Add link
+				pad.append(z = $(document.createElement('a')));
+				z.html('Add ' + buttonLabel);
+				z.click(rFunc(times.addExclusion, this, false, id));
+			}
+		},
+		
+		addExclusion: function(id) {
+			if (t[id] && t[id].exclusionPad && t[id].exclusionParts) {
+				var pad = t[id].exclusionPad;
+				var parts = t[id].exclusionParts;
+				var z;
+				var part = {
+					isRepeat: false,
+				};
+
+				// Create a new exclusion
+				parts.pad.append(part.pad = $(document.createElement('div')));
+
+				// Add repeating
+				part.repeat = parts.exclusions.push(times.addRepeat(id, part.pad, 'repeating unavailability'));
+			}
+		},
+
+		drawExclusion: function(id, store) {
+			if (t[id]) {
+				if ((store.repeat.checkbox.attr('checked') ? true : false) !== store.isRepeat) {
+					store.isRepeat = (store.repeat.checkbox.attr('checked') ? true : false);
+					//if (!store.isRepeat) {
+					//	store.pad.append(store.date = $(document.create
+				}
+			}
 		},
 
 		valuesChanged: function(id) {
@@ -964,77 +1080,82 @@ var bS = (function() {
 		 * Single/multi day
 		 */
 		times: {
-			init: function(id) {
+			init: function(id, type) {
 				if (!t[id]) {
 					d('creating new times section ' + id);
 					t[id] = {
-							'pad': $('#' + id), // Is the main div
-							'multiday': null, // Multiday checkbox
-							'storedValues' : {},
-							'previousValues': {},
-
+						'type': type, // The type of event (termed or event)
+						'pad': $('#' + id), // Is the main div
+						'multiday': null, // Multiday checkbox
+						'storedValues' : {},
+						'previousValues': {},
 					};
 
+					console.log(t[id]);
+
 					var x, y, z, eid, ename;
-
-					// Create day specification
-					eid = getId(id, 'multiple');
-					ename = getName(id, 'multiple');
-					console.log(getId(id, 'multiple'));
-					t[id]['pad'].append(z = $(document.createElement('input')));
-					z.attr('type', 'checkbox');
-					console.log(eid);
-					z.attr('id', eid);
-					z.attr('name', ename);
-					z.change(rFunc(times.drawDayPad, this, false, id));
-					t[id]['multiday'] = z;
-					t[id]['pad'].append(y = $(document.createElement('label')));
-					y.html('Multi-day event');
-					y.attr('for', eid);
-
-					t[id]['pad'].append(' ');
-
-					// Create repeat option
-					eid = getId(id, 'repeat');
-					ename = getName(id, 'repeat');
-					t[id]['pad'].append(z = $(document.createElement('input')));
-					z.attr('type', 'checkbox');
-					z.attr('id', eid);
-					z.attr('name', ename);
-					z.change(rFunc(times.drawRepeatPad, this, false, id));
-					t[id]['repeat'] = z;
-					t[id]['pad'].append(y = $(document.createElement('label')));
-					y.html('Repeating event');
-					y.attr('for', eid);
-
-					// Draw repeat pad
-					t[id]['pad'].append(t[id]['repeatPad'] = $(document.createElement('div')));
-
-					t[id]['pad'].append(t[id]['dayPad'] = $(document.createElement('div')));
-
-					// Create time specification
-					t[id]['pad'].append(z = $(document.createElement('div')));
-					z.html('Times: ');
 					
-					// All Day
-					eid = getId(id, 'allDay');
-					ename = getName(id, 'allDay');
-					z.append(y = $(document.createElement('input')));
-					y.attr('type', 'checkbox');
-					y.attr('id', eid);
-					y.attr('name', ename);
-					y.change(rFunc(times.drawTimesPad, this, false, id));
-					t[id]['allDay'] = y;
-					z.append(y = $(document.createElement('label')));
-					y.html('All day event');
-					y.attr('for', eid);
-					z.append(' ');
+					switch (t[id].type) {
+						case 'event':
+							// Create day specification
+							eid = getId(id, 'multiple');
+							ename = getName(id, 'multiple');
+							console.log(getId(id, 'multiple'));
+							t[id]['pad'].append(z = $(document.createElement('input')));
+							z.attr('type', 'checkbox');
+							console.log(eid);
+							z.attr('id', eid);
+							z.attr('name', ename);
+							z.change(rFunc(times.drawDayPad, this, false, id));
+							t[id]['multiday'] = z;
+							t[id]['pad'].append(y = $(document.createElement('label')));
+							y.html('Multi-day event');
+							y.attr('for', eid);
 
-					z.append(t[id]['timeChecksPad'] = $(document.createElement('span')));
-					
-					z.append(t[id]['timePad'] = $(document.createElement('div')));
-					
-					times.drawRepeatPad(id);
+							t[id]['pad'].append(' ');
+
+							// Create repeat option
+							t[id].repeat = times.addRepeat(id, t[id].pad, 'repeating event', times.drawDayPad);
+
+							t[id]['pad'].append(t[id]['dayPad'] = $(document.createElement('div')));
+
+							// Create time specification
+							t[id]['pad'].append(z = $(document.createElement('div')));
+							z.html('Times: ');
+							
+							// All Day
+							eid = getId(id, 'allDay');
+							ename = getName(id, 'allDay');
+							z.append(y = $(document.createElement('input')));
+							y.attr('type', 'checkbox');
+							y.attr('id', eid);
+							y.attr('name', ename);
+							y.change(rFunc(times.drawTimesPad, this, false, id));
+							t[id]['allDay'] = y;
+							z.append(y = $(document.createElement('label')));
+							y.html('All day event');
+							y.attr('for', eid);
+							z.append(' ');
+
+							z.append(t[id]['timeChecksPad'] = $(document.createElement('span')));
+							
+							z.append(t[id]['timePad'] = $(document.createElement('div')));
+							
+							// Draw exclusion pad
+							t[id]['pad'].append(t[id].exclusionPad = $(document.createElement('div')));
+							
+							times.drawRepeatPad(id);
+
+
+							break;
+						case 'termed':
+							// Draw exclusion pad
+							t[id]['pad'].append(t[id].exclusionPad = $(document.createElement('div')));
+							
+							times.drawExclusionsPad(id, 'Not available:', 'unavailability');
+							
+							break;
+					}
 				}
 			}
 		},

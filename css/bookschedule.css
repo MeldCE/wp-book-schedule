@@ -94,5 +94,5 @@ div.bsBookingPopup div.bookingsFrame:hover,
 div.bsBookingPopup div.bookingsFrame.open {
 	height: auto;
 	max-height: 70%;
-	overflow-y: scroll;
+	overflow-y: auto;
 }

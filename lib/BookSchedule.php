@@ -1274,10 +1274,13 @@ class BookSchedule {
 	 */
 	function printTimingMeta($post, $metabox) {
 		$id = uniqid();
-		echo '<div id="' . $id . '"></div>';
-		echo '<script type="text/javascript">'
-				. 'bS.times.init(\'' . $id . '\');'
-				. '</script>';
+		// Get the type of event
+		if ($type = static::types($post->post_type)) {
+			echo '<div id="' . $id . '"></div>';
+			echo '<script type="text/javascript">'
+					. 'bS.times.init(\'' . $id . '\', \'' . $type['type'] . '\');'
+					. '</script>';
+		}
 	}
 
 	/**
