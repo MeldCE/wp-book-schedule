@@ -65,6 +65,10 @@ var bS = (function() {
 		return parts;
 	}
 
+	function uniqid() {
+		return (new Date().getTime()).toString(16);
+	}
+
 	function getId() {
 		var parts = combineParts(arguments);
 
@@ -291,6 +295,304 @@ var bS = (function() {
 	 * Internal functions for costs
 	 */
 	var costs = {
+		drawOption: function (obj, id) {
+			var z, i, data = {};
+
+			obj.html('Option');
+			i = uniqid();
+
+			obj.append(z = $(document.createElement('label')));
+			z.html('Label:');
+			z.attr('for', i);
+			obj.append(data.label = $(document.createElement('input')));
+			data.label.attr('id', i);
+
+			data.pad = ObjectBuilder.createPad(id, obj);
+
+			obj.data(data);
+		},
+
+		parseOption: function (obj, id) {
+			var data = obj.data();
+
+			return value = {
+				type: 'option',
+				label: data.label.val(),
+				exclusion: ObjectBuilder.parsePadObject(id, data.pad, {
+					multiple: true
+				})
+			};
+		},
+
+		drawExclusion: function (obj, id) {
+			var z, y, i, data = {};
+
+			obj.html('Exclusion');
+			i = uniqid();
+
+			obj.append(y = $(document.createElement('span')));
+			y.append(z = $(document.createElement('label')));
+			z.html('Label:');
+			z.attr('for', i);
+			y.append(data.label = $(document.createElement('input')));
+			data.label.attr('id', i);
+
+			data.pad = ObjectBuilder.createPad(id, obj, {
+				multiple: true
+			});
+
+			obj.data(data);
+		},
+
+		parseExclusion: function (obj, id) {
+			var data = obj.data();
+
+			return value = {
+				type: 'exclusion',
+				label: data.label.val(),
+				exclusion: ObjectBuilder.parsePadObject(id, data.pad)
+			};
+		},
+
+		drawSpecificDate: function (obj, id) {
+			var z, i, data = {};
+
+			obj.html('Date ');
+			
+			obj.append(data.date = $(document.createElement('input')));
+			data.date.datepicker({
+				dateFormat: 'yy-mm-dd'
+			});
+
+			data.pad = ObjectBuilder.createPad(id, obj, {
+				multiple: true,
+				types: ['part-time', 'part-detail']
+			});
+
+			obj.data(data);
+		},
+
+		parseSpecificDate: function (obj, id) {
+			var data = obj.data();
+
+			return value = {
+				type: 'specificDate',
+				label: data.date.val(),
+				details: ObjectBuilder.parsePadObject(id, data.pad)
+			};
+		},
+
+		drawDays: function (obj, id) {
+			var z, data = {};
+		
+			obj.html('');
+			obj.append(data.number = $(document.createElement('input')));
+			data.number.attr('type', 'number');
+			data.number.val('1');
+			obj.append(z = $(document.createElement('span')));
+			z.html(' day(s)');
+
+			data.pad = ObjectBuilder.createPad(id, obj, {
+				multiple: true,
+				types: ['part-time', 'part-detail']
+			});
+			
+			obj.data(data);
+		},
+
+		parseDays: function (obj, id) {
+			var data = obj.data();
+			
+			return {
+				type: 'days',
+				number: data.number.val(),
+				details: ObjectBuilder.parsePadObject(id, data.pad)
+			};
+		},
+
+		drawTime: function (obj, id) {
+			var z, y, data = {};
+			
+			obj.html('Time: ');
+
+			obj.append(data.start = $(document.createElement('input')));
+			obj.append(' - ');
+			obj.append(data.end = $(document.createElement('input')));
+			$.timepicker.timeRange(data.start, data.end, {
+				timeFormat: 'HH:mm',
+				stepMinute: 5
+			});
+
+			obj.data(data);
+		},
+
+		parseTime: function (obj, id) {
+			var data = obj.data();
+			
+			return {
+				type: 'time',
+				start: data.start.val(),
+				end: data.end.val()
+			};
+		},
+
+		repeats: {
+			day: { ly: 'Daily', ls: 'day(s)' },
+			week: { ly: 'Weekly', ls: 'week(s)' },
+			month: { ly: 'Monthly', ls: 'month(s)' },
+			year: { ly: 'Yearly', ls: 'year(s)' },
+		},
+
+		drawRepeatOn: function(id, obj, data) {
+			if (!data) {
+				data = obj.data();
+			}
+
+			data.onPad.html('');
+			var type = data.type.val();
+			console.log('Type of repeat is ' + type);
+			data.freqLabel.html(' ' + costs.repeats[type]['ls']);
+			switch (type) {
+				case 'day':
+					break;
+				case 'week':
+					data.onPad.append(' on ');
+					var z, d, days = {
+						mon: 'Monday',
+						tue: 'Tuesday',
+						wed: 'Wednesday',
+						thu: 'Thursday',
+						fri: 'Friday',
+						sat: 'Saturday',
+						sun: 'Sunday'
+					};
+					data.on = [];
+					for (d in days) {
+						eid = uniqid();
+						data.onPad.append(y = $(document.createElement('label')));
+						y.html(days[d]);
+						y.attr('for', eid);
+						data.onPad.append(z = $(document.createElement('input')));
+						z.attr('type', 'checkbox');
+						z.attr('id', eid);
+						z.val(d);
+						data.onPad.append(' ');
+						data.on.push(z);
+					}
+					break;
+				case 'month':
+					data.onPad.append(data.onType = $(document.createElement('select')));
+					break;
+				case 'year':
+					data.onPad.append(' on the ');
+					data.onPad.append(data.on = $(document.createElement('input')));
+					data.on.datepicker({
+						dateFormat: 'mm-dd',
+						changeYear: false
+					});
+					break;
+			}
+			
+			if (obj) {
+				obj.data(data);
+			}
+		},
+
+		drawRepeat: function (obj, id) {
+			var z, y, i, data = {};
+			var type; /// @todo current value
+				
+			obj.html('Repeat ');
+			obj.append(z = $(document.createElement('select')));
+			for (i in costs.repeats) {
+				if (!type) type = i;
+				z.append(y = $(document.createElement('option')));
+				y.html(costs.repeats[i]['ly']);
+				y.val(i);
+			}
+			z.change(rFunc(costs.drawRepeatOn, this, false, id, obj));
+			data.type = z;
+
+			// every
+			obj.append(' every ');
+			obj.append(data.freq = $(document.createElement('input')));
+
+			obj.append(data.freqLabel = $(document.createElement('span')));
+
+			// on the
+			obj.append(data.onPad = $(document.createElement('span')));
+			
+			// Draw on the
+			costs.drawRepeatOn(id, null, data);
+
+			//t[id]['repeatPad'].append(' until ');
+			//t[id]['repeatPad'].append(data['untilPlace'] = $(document.createElement('span')));
+			//data['untilPlace'].append(repeats[type]['until']);
+			
+			data.pad = ObjectBuilder.createPad(id, obj, {});
+			
+			obj.data(data);
+		},
+
+		parseRepeat: function (obj, id) {
+		},
+	
+		pricePers: {
+			oneoff: '',
+			hourly: 'per hour',
+			daily: 'per day',
+			weekly: 'per week',
+			monthly: 'per month',
+		},
+
+		drawPrice: function (obj, id) {
+			var z, i, data = {};
+
+			obj.html('Price: ');
+			
+			obj.append(data.price = $(document.createElement('input')));
+			data.price.attr('type', 'number');
+			
+			obj.append(data.per = $(document.createElement('select')));
+			for (i in costs.pricePers) {
+				data.per.append(z = $(document.createElement('option')));
+				z.html(costs.pricePers[i]);
+				z.val(i);
+			}
+			
+			obj.data(data);
+		},
+
+		parsePrice: function (obj, id) {
+			var data = obj.data();
+			
+			return {
+				type: 'price',
+				price: data.price.val(),
+				per: data.per.val()
+			};
+		},
+
+		drawDetail: function (obj, id) {
+			var z, data = {};
+
+			obj.html('Details:'),
+			
+			obj.append(data.input = $(document.createElement('textarea')));
+			
+			obj.data(data);
+		},
+
+		parseDetail: function (obj, id) {
+			var data = obj.data();
+			
+			return {
+				type: 'detail',
+				detail: data.input.val()
+			};
+		},
+
+
 		/**
 		 * Creates a new cost option div
 		 */
@@ -458,333 +760,51 @@ var bS = (function() {
 		}
 	};
 
-	var times = {
-		repeats: {
-			day: { ly: 'Daily', ls: 'day(s)' },
-			week: { ly: 'Weekly', ls: 'week(s)' },
-			month: { ly: 'Monthly', ls: 'month(s)' },
-			year: { ly: 'Yearly', ls: 'year(s)' },
-		},
-
-		/**
-		 * Draws and manages a repeat object
-		 *
-		 * @param id string ID of times objects
-		 * @param obj jQueryDOMObject DOM to append the repeat to
-		 * @param label string Label for the repeat checkbox
-		 * @param func function Will be called when the checkbox value is changed
-		 *
-		 * @returns object Object containing the repeat parts
-		 */
-		addRepeat: function(id, obj, label, func) {
-			if (t[id]) {
-				var store = {};
-				var eid = getId(id, 'repeat');
-				var ename = getName(id, 'repeat');
-				var z, y;
-
-				if (label) {
-					obj.append(z = $(document.createElement('input')));
-					z.attr('type', 'checkbox');
-					z.attr('id', eid);
-					z.attr('name', ename);
-					z.change(rFunc(times.drawRepeatPad, this, false, id, store));
-					store.checkbox = z;
-					store.checkboxValue = false;
-					obj.append(y = $(document.createElement('label')));
-					y.html(label);
-					y.attr('for', eid);
-
-					if (func) {
-						store.func = func;
-					}
-				}
-
-				// Create repeat pad
-				obj.append(store.pad = $(document.createElement('div')));
-
-				// Draw repeat pad
-				times.drawRepeatPad(id, store);
-				
-				return store;
+	costs.elements = {
+		part: {
+			elements: {
+				option: {
+					label: 'Option',
+					draw: costs.drawOption,
+					parse: costs.parseOption,
+				},
+				date: {
+					label: 'Specific Date(s)',
+					draw: costs.drawSpecificDate,
+					parse: costs.parseSpecificDate
+				},
+				days: {
+					label: 'Day(s)',
+					draw: costs.drawDays,
+					parse: costs.parseDays,
+				},
+				time: {
+					label: 'Time',
+					draw: costs.drawTime,
+					parse: costs.parseTime,
+				},
+				repeat: {
+					label: 'Repeat',
+					draw: costs.drawRepeat,
+					parse: costs.parseRepeat,
+				},
+				price: {
+					label: 'Price',
+					draw: costs.drawPrice,
+					parse: costs.parsePrice,
+				},
+				detail: {
+					label: 'Detail',
+					draw: costs.drawDetail,
+					parse: costs.parseDetail,
+				},
+				exclusion: {
+					label: 'Exclusion',
+					draw: costs.drawExclusion,
+					parse: costs.parseExclusion,
+				},
 			}
-		},
-
-		drawRepeatPad: function(id, store) {
-			var z, y, i;
-			var type; /// @todo current value
-			if (!store.checkbox ||
-					(store.checkbox.attr('checked') ? true : false) !== store.checkboxValue) {
-				console.log('Redrawing pad');
-				store.checkboxValue = (store.checkbox.attr('checked') ? true : false);
-				var pad = store.pad;
-				pad.html('Repeat ');
-				pad.append(z = $(document.createElement('select')));
-				for (i in times.repeats) {
-					if (!type) type = i;
-					z.append(y = $(document.createElement('option')));
-					y.html(times.repeats[i]['ly']);
-					y.val(i);
-				}
-				z.change(rFunc(times.drawRepeatOn, this, false, id, store));
-				store.type = z;
-
-				// every
-				pad.append(' every ');
-				pad.append(store.freq = $(document.createElement('input')));
-
-				pad.append(store.freqLabel = $(document.createElement('span')));
-
-				// on the
-				pad.append(store.onPad = $(document.createElement('div')));
-				
-				// Draw on the
-				times.drawRepeatOn(id, store);
-
-				//t[id]['repeatPad'].append(' until ');
-				//t[id]['repeatPad'].append(data['untilPlace'] = $(document.createElement('span')));
-				//data['untilPlace'].append(repeats[type]['until']);
-
-				if (store.func) {
-					store.func.call(this, id);
-				}
-			}
-		},
-
-		drawRepeatOn: function(id, store) {
-			store.onPad.html('');
-			var type = store.type.val();
-			console.log('Type of repeat is ' + type);
-			store.freqLabel.html(times.repeats[type]['ls']);
-			switch (type) {
-				case 'day':
-					break;
-				case 'week':
-					store.onPad.append(' on ');
-					var z, d, days = {
-						mon: 'Monday',
-						tue: 'Tuesday',
-						wed: 'Wednesday',
-						thu: 'Thursday',
-						fri: 'Friday',
-						sat: 'Saturday',
-						sun: 'Sunday'
-					};
-					for (d in days) {
-						eid = getId(id, 'repeat', 'on', '');
-						ename = getName(id, 'repeat', 'on');
-						store.onPad.append(z = $(document.createElement('input')));
-						z.attr('type', 'checkbox');
-						z.attr('id', eid);
-						z.attr('name', ename);
-						z.val(d);
-						store.onPad.append(y = $(document.createElement('label')));
-						y.html(days[d]);
-						y.attr('for', eid);
-						store.onPad.append(' ');
-					}
-					break;
-				case 'month':
-				case 'year':
-			}
-		},
-
-		drawDayPad: function(id) {
-			var p = t[id].dayPad, z;
-			p.html('');
-
-			console.log('Drawing day pad');
-
-			if (t[id].multiday.attr('checked')) { // Multi-day
-				if (t[id].repeat.checkbox.attr('checked')) { // Repeating
-					p.append('Number of days: ');
-					p.append(z = $(document.createElement('input')));
-					z.attr('type', 'number');
-				} else {
-					p.append('Dates: ');
-					var fields = createDate(true, false, true);
-					p.append(fields[0], ' - ', fields[1]);
-				}
-			} else { // Single-day
-				if (t[id].repeat.checkbox.attr('checked')) { // Repeating
-				} else {
-					p.append('Date: ');
-					p.append(createDate(true));
-				}
-			}
-			
-			times.drawTimesPad(id);
-		},
-
-		drawTimesPad: function(id) {
-			var p = t[id]['timePad'], c = t[id]['timeChecksPad'], z, y, eid, ename;
-			
-			if (times.valuesChanged(id, true, 'multiday')) {
-				c.html('');
-				
-				if (times.value(id, 'multiday', true) && !times.value(id, 'allDay', true)) {
-					// Specify times per day
-					eid = getId(id, 'timePerDay');
-					ename = getName(id, 'timePerDay');
-					c.append(y = $(document.createElement('input')));
-					y.attr('type', 'checkbox');
-					y.attr('id', eid);
-					y.attr('name', ename);
-					y.change(rFunc(times.drawTimesPad, this, false, id));
-					t[id]['timePerDay'] = y;
-					c.append(y = $(document.createElement('label')));
-					y.html('Specify times for each day');
-					y.attr('for', eid);
-				}
-			}
-
-			if (times.valuesChanged(id, true, 'multiday', 'allDay')) {
-				p.html('');
-
-				// Write time boxes if not 
-				if (!times.value(id, 'allDay')) {
-					//if (
-				}
-			}
-
-			times.refreshPreviousValues(id, 'multiday', 'allDay');
-		},
-
-		drawExclusionsPad: function(id, label, buttonLabel) {
-			if (t[id] && t[id].exclusionPad) {
-				var pad = t[id].exclusionPad;
-				var parts = (t[id].exclusionParts = { exclusions: [] });
-				var z;
-
-				pad.html(label);
-
-				// Create place for exclusions
-				pad.append(parts.pad = $(document.createElement('div')));
-
-				// Create Add link
-				pad.append(z = $(document.createElement('a')));
-				z.html('Add ' + buttonLabel);
-				z.click(rFunc(times.addExclusion, this, false, id));
-			}
-		},
-		
-		addExclusion: function(id) {
-			if (t[id] && t[id].exclusionPad && t[id].exclusionParts) {
-				var pad = t[id].exclusionPad;
-				var parts = t[id].exclusionParts;
-				var z;
-				var part = {
-					isRepeat: false,
-				};
-
-				// Create a new exclusion
-				parts.pad.append(part.pad = $(document.createElement('div')));
-
-				// Add repeating
-				part.repeat = parts.exclusions.push(times.addRepeat(id, part.pad, 'repeating unavailability'));
-			}
-		},
-
-		drawExclusion: function(id, store) {
-			if (t[id]) {
-				if ((store.repeat.checkbox.attr('checked') ? true : false) !== store.isRepeat) {
-					store.isRepeat = (store.repeat.checkbox.attr('checked') ? true : false);
-					//if (!store.isRepeat) {
-					//	store.pad.append(store.date = $(document.create
-				}
-			}
-		},
-
-		valuesChanged: function(id) {
-			var s, update, changed = false;
-			var args = Array.prototype.slice.call(arguments);
-			args.shift();
-			if (args[0] === true) {
-				update = true;
-				args.shift();
-			}
-
-			if (!t[id]['storedValues']) {
-				t[id]['storedValues'] = {};
-				if (!update) return true;
-			}
-
-			for (s in args) {
-				if (t[id][args[s]] && t[id][args[s]].attr) {
-					switch(t[id][args[s]].attr('type')) {
-						case 'checkbox':
-							if (typeof(t[id]['storedValues'][args[s]]) === 'undefined' ||
-									update) {
-								console.log('updating stored of ' + args[s]);
-								t[id]['storedValues'][args[s]] = t[id][args[s]].attr('checked');
-							}
-							break;
-						default:
-							if (typeof(t[id]['storedValues'][args[s]]) === 'undefined' ||
-									update) {
-								console.log('updating stored of ' + args[s]);
-								t[id]['storedValues'][args[s]] = t[id][args[s]].val();
-							}
-							break;
-					}
-
-					console.log('stored ' + args[s] + ': ' + t[id]['storedValues'][args[s]]);
-					console.log('previous ' + args[s] + ': ' + t[id]['previousValues'][args[s]]);
-
-					if ((t[id]['storedValues'][args[s]] && !t[id]['previousValues'][args[s]]) 
-							|| (!t[id]['storedValues'][args[s]] && t[id]['previousValues'][args[s]])) {
-						changed = true;
-					}
-				}
-			}
-
-			console.log(t[id]['storedValues']);
-			if (changed) console.log('changed');
-			else console.log('no change');
-			return changed;
-		},
-
-		refreshPreviousValues: function(id) {
-			var s;
-			var args = Array.prototype.slice.call(arguments);
-			args.shift();
-
-			if (!t[id]['storedValues']) {
-				t[id]['storedValues'] = {};
-			}
-			if (!t[id]['previousValues']) {
-				t[id]['previousValues'] = {};
-			}
-
-			for (s in args) {
-				if (typeof(t[id]['storedValues'][args[s]]) !== 'undefined') {
-					t[id]['previousValues'][args[s]] = t[id]['storedValues'][args[s]];
-				} else if (t[id]['previousValues'][args[s]]) {
-					delete(t[id]['previousValues'][args[s]]);
-				}
-			}
-		},
-
-		value: function(id, value, update) {
-			if (typeof(t[id]['storedValues'][value]) === 'undefined' || update) {
-				if (t[id][value] && t[id][value].attr) {
-					switch(t[id][value].attr('type')) {
-						case 'checkbox':
-							t[id]['storedValues'][value] = t[id][value].attr('checked');
-							break;
-						default:
-							t[id]['storedValues'][value] = t[id][value].val();
-							break;
-					}
-				} else {
-					return null;
-				}
-			}
-
-			console.log(value + ': ' + t[id]['storedValues'][value]);
-
-			return t[id]['storedValues'][value];
-		},
+		}
 	};
 
 	var book = {
@@ -1029,6 +1049,55 @@ var bS = (function() {
 		},
 	};
 
+	var calendar = {
+		drawMonth: function(obj, events) {
+			var nextEventStart = 0;
+			var event, nextEvent;
+			var e, start, current = new Date().valueOf();
+
+			// Go through events and get future events
+			for (e in events) {
+				if (!events[e].start instanceof Date) {
+					event = new Date(events[e].start);
+					start = nextEvent.valueOf();
+				} else {
+					event = events[e].start;
+					start = nextEvent.valueOf();
+				}
+
+				if (start > current) {
+					if (!nextEventStart || start < nextEventStart) {
+						nextEventStart = start;
+						nextEvent = event;
+					}
+				}
+			}
+
+			// Set next event to today if don't have an event
+			if (!nextEvent) {
+				nextEvent = new Date;
+			}
+
+			// Draw the month
+			obj.html('');
+
+			// Create a prev/next
+			obj.append(z = $(document.createElement('div')));
+
+			// Find the first sunday @todo option
+			var month = new Date(nextEvent);
+
+			month.setDate(1);
+
+			month - month.getDay();
+
+			// Start printing the calendar
+			// Print the header first
+			obj.append(z = $(document.createElement('div')));
+			//z.append
+		}
+	}
+
 	return {
 		/**
 		 * Handles the drawing and actions associated with the costs metabox.
@@ -1042,122 +1111,29 @@ var bS = (function() {
 							'costs': {}, // Stores each costs elements
 					};
 
-					// Create global cost options checkbox
-					var x, y, z;
-					var gid = getId(id, 'global');
-					var gname = getName(id, 'global');
-					c[id]['pad'].append((x = $(document.createElement('div'))));
-					x.append((y = $(document.createElement('label'))));
-					y.append(document.createTextNode('Use global cost options: '));
-					y.attr('for', gid);
-					x.append((y = (c[id]['globalCheck'] = $(document.createElement('input')))));
-					y.attr('type', 'checkbox');
-					y.attr('id', gid);
-					y.attr('name', gname);
-					y.change(rFunc(costs.toggleGlobalCosts, this, false, id));
-					c[id]['pad'].append((c[id]['global'] = $(document.createElement('div'))));
+					var z, y;
 
+					// Help
+					z = createLabelledFrame(c[id].pad, 'Show help', {
+						'hideable': true,
+						'hide': true,
+						'toggleLabel': 'help'
+					});
+
+					z.html('<p>If you leave this blank, the event will be free termed ' +
+							'event that can be booked.</p>');
+
+					// Create input
+					c[id].pad.append(z = $(document.createElement('input')));
+					z.attr('type', 'hidden');
+
+					c[id].pad.append(y = $(document.createElement('div')));
+					ObjectBuilder.create(y, costs.elements, {
+							input: z,
+							multiple: true,
+							});
 				}
 			},
-
-			/**
-			 * Adds a new cost option to the item
-			 */
-			add: function(id) {
-				d('Costs add called');
-				if (c[id]) {
-					d('Found costs id ' + id);
-					costs.addCostDiv(id);
-				}
-			},
-		},
-
-		/**
-		 * Handles the drawing and actions associated with the timing metabox.
-		 *
-		 * Repeating ?
-		 *  y
-		 * Single/multi day
-		 */
-		times: {
-			init: function(id, type) {
-				if (!t[id]) {
-					d('creating new times section ' + id);
-					t[id] = {
-						'type': type, // The type of event (termed or event)
-						'pad': $('#' + id), // Is the main div
-						'multiday': null, // Multiday checkbox
-						'storedValues' : {},
-						'previousValues': {},
-					};
-
-					console.log(t[id]);
-
-					var x, y, z, eid, ename;
-					
-					switch (t[id].type) {
-						case 'event':
-							// Create day specification
-							eid = getId(id, 'multiple');
-							ename = getName(id, 'multiple');
-							console.log(getId(id, 'multiple'));
-							t[id]['pad'].append(z = $(document.createElement('input')));
-							z.attr('type', 'checkbox');
-							console.log(eid);
-							z.attr('id', eid);
-							z.attr('name', ename);
-							z.change(rFunc(times.drawDayPad, this, false, id));
-							t[id]['multiday'] = z;
-							t[id]['pad'].append(y = $(document.createElement('label')));
-							y.html('Multi-day event');
-							y.attr('for', eid);
-
-							t[id]['pad'].append(' ');
-
-							// Create repeat option
-							t[id].repeat = times.addRepeat(id, t[id].pad, 'repeating event', times.drawDayPad);
-
-							t[id]['pad'].append(t[id]['dayPad'] = $(document.createElement('div')));
-
-							// Create time specification
-							t[id]['pad'].append(z = $(document.createElement('div')));
-							z.html('Times: ');
-							
-							// All Day
-							eid = getId(id, 'allDay');
-							ename = getName(id, 'allDay');
-							z.append(y = $(document.createElement('input')));
-							y.attr('type', 'checkbox');
-							y.attr('id', eid);
-							y.attr('name', ename);
-							y.change(rFunc(times.drawTimesPad, this, false, id));
-							t[id]['allDay'] = y;
-							z.append(y = $(document.createElement('label')));
-							y.html('All day event');
-							y.attr('for', eid);
-							z.append(' ');
-
-							z.append(t[id]['timeChecksPad'] = $(document.createElement('span')));
-							
-							z.append(t[id]['timePad'] = $(document.createElement('div')));
-							
-							// Draw exclusion pad
-							t[id]['pad'].append(t[id].exclusionPad = $(document.createElement('div')));
-							
-							times.drawRepeatPad(id);
-
-
-							break;
-						case 'termed':
-							// Draw exclusion pad
-							t[id]['pad'].append(t[id].exclusionPad = $(document.createElement('div')));
-							
-							times.drawExclusionsPad(id, 'Not available:', 'unavailability');
-							
-							break;
-					}
-				}
-			}
 		},
 
 		/**
@@ -1216,6 +1192,7 @@ var bS = (function() {
 						'button': $('#' + id + 'button'),
 						'bookings': $('#' + id + 'bookings'),
 						'bookingsFrame': $('#' + id + 'bookingsFrame'),
+						'calendarFrame': $('#' + id + 'calendarFrame'),
 						'message': $('#' + id + 'message'),
 						//'': $('#' + id + ''),
 						'data': {
@@ -1279,6 +1256,10 @@ var bS = (function() {
 					$.post(b['ajaxurl'] + '?action=bs_add', {'bs_add': {'type': type, 'item': { 'id': id}, 'nonce': nonce}}, rFunc(book.add, this, true, type, nonce));
 				}
 			},
+
+			addOption: function(time) {
+				// Go through 
+			}
 		},
 	};
 })();

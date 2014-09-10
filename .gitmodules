@@ -7,3 +7,6 @@
 [submodule "lib/jquery-ui-timepicker"]
 	path = lib/jquery-ui-timepicker
 	url = https://github.com/trentrichardson/jQuery-Timepicker-Addon.git
+[submodule "lib/object-builder"]
+	path = lib/object-builder
+	url = https://github.com/MeldCE/object-builder.git

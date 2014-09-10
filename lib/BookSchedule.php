@@ -83,24 +83,6 @@ class BookSchedule {
 																. 'type.', 'book_schedule'),
 														'type' => 'longtext',
 													),
-													'type' => array(
-														'title' => __('Type of Item', 'book_schedule'),
-														'description' => __('Select what kind of events '
-																. 'these will be. A termed event is an event '
-																. 'that is running continuously and people '
-																. 'can sign up to specific days. A '
-																. '(repeating) event is a single event or '
-																. 'an event that has multiple occurances '
-																. 'and people can sign up to a specific '
-																. 'occurance of that event', 'book_scedule'),
-														'type' => 'select',
-														'values' => array(
-																'termed' => __('Termed Event',
-																	'book_schedule'),
-																'event' => __('(Repeating) Event',
-																	'book_schedule'),
-														),
-													),
 													'additionalInfoFields' => array(
 															'title' => __('Additional Information Fields', 'book_scedule'),
 															'description' => __('Create any additional '
@@ -477,16 +459,11 @@ class BookSchedule {
 				add_meta_box('location', __('Location ',
 						'book_schedule'), array(&$me, 'printLocationMeta'),
 						$type['slug'], 'normal', 'high', array($type));
-
-				// Timings Box
-				add_meta_box('timings', __("$type[singular] Running Times",
-						'book_schedule'), array(&$me, 'printTimingMeta'), $type['slug'],
-						'normal', 'high', array($type));
 				
-				// Cost Box
-				add_meta_box('costs', __("$type[singular] Costs Options and Spaces "
-						. 'Available', 'book_schedule'), array(&$me, 'printCostsMeta'),
-						$type['slug'], 'normal', 'high', array($type));
+				// Running and Costs Box
+				add_meta_box('timings', __("$type[singular] Times and Costs",
+						'book_schedule'), array(&$me, 'printCostsMeta'), $type['slug'],
+						'normal', 'high', array($type));
 				
 				// Linked Booking Box
 				add_meta_box('linkedBooking', __('Linked Bookings ',
@@ -522,33 +499,16 @@ class BookSchedule {
 		wp_enqueue_style('wpsettings', 
 				plugins_url('/lib/wp-settings/css/wpsettings.min.css', dirname(__FILE__)));
 		/// @todo @see http://codex.wordpress.org/I18n_for_WordPress_Developers
+		wp_enqueue_script('object-builder',
+				plugins_url('/lib/object-builder/objectBuilder.js',
+				dirname(__FILE__)));
+		wp_enqueue_style('object-builder',
+				plugins_url('/lib/object-builder/objectBuilder.css',
+				dirname(__FILE__)));
 		wp_enqueue_script('book-schedule', 
-				plugins_url('/js/bookschedule.js', dirname(__FILE__)));
-		/*wp_enqueue_style( 'dashicons' );
-		wp_enqueue_style('ghierarchy',
-				plugins_url('/css/ghierarchy.min.css', dirname(__FILE__)), array('dashicons'));
-		wp_enqueue_script('jquery-ui-multiselect', 
-				plugins_url('/lib/jquery-ui-multiselect/src/jquery.multiselect.min.js', dirname(__FILE__)),
-				array('jquery', 'jquery-ui-core'));
-		wp_enqueue_script('jquery-ui-multiselect-filter', 
-				plugins_url('/lib/jquery-ui-multiselect/src/jquery.multiselect.filter.min.js', dirname(__FILE__)),
-				array('jquery', 'jquery-ui-core', 'jquery-ui-multiselect'));
-		wp_enqueue_style('jquery-ui-multiselect',
-				plugins_url('/lib/jquery-ui-multiselect/jquery.multiselect.css', dirname(__FILE__)));
-		wp_enqueue_style('jquery-ui-multiselect-filter',
-				plugins_url('/lib/jquery-ui-multiselect/jquery.multiselect.filter.css', dirname(__FILE__)));
-		wp_enqueue_script('media-upload');
-		wp_enqueue_script('jquery-ui-timepicker', 
-				plugins_url('/lib/jquery-ui-timepicker/src/jquery-ui-timepicker-addon.js', dirname(__FILE__)),
-				array('jquery', 'jquery-ui-core', 'jquery-ui-datepicker', 'jquery-ui-slider'));
-		wp_enqueue_style('jquery-ui-timerpicker',
-				plugins_url('/lib/jquery-ui-timepicker/src/jquery-ui-timepicker-addon.css', dirname(__FILE__)));
-		wp_enqueue_style('ghierarchy-jquery-ui',
-				plugins_url('/css/jquery-ui/jquery-ui.min.css', dirname(__FILE__)));
-		wp_enqueue_style('ghierarchy-jquery-ui-structure',
-				plugins_url('/css/jquery-ui/jquery-ui.structure.min.css', dirname(__FILE__)));
-		wp_enqueue_style('ghierarchy-jquery-ui-theme',
-				plugins_url('/css/jquery-ui/jquery-ui.theme.min.css', dirname(__FILE__)));*/
+				plugins_url('/js/bookschedule.js', dirname(__FILE__)),
+				array('object-builder'));
+		//wp_enqueue_style( 'dashicons' );
 	}
 
 	/**
@@ -556,11 +516,14 @@ class BookSchedule {
 	 */
 	static function enqueue() {
 		/*wp_enqueue_script('moment',
-				plugins_url('/lib/moment/moment.min.js', dirname(__FILE__)), array('jquery'));
+				plugins_url('/lib/moment/moment.min.js', dirname(__FILE__)),
+				array('jquery'));
 		wp_enqueue_script('fullcalendar',
-				plugins_url('/lib/fullcalendar/dist/fullcalendar.js', dirname(__FILE__)), array('jquery', 'moment'));
+				plugins_url('/lib/fullcalendar/dist/fullcalendar.js',
+				dirname(__FILE__)), array('jquery', 'moment'));
 		wp_enqueue_style('fullcalendar',
-				plugins_url('lib/fullcalendar/dist/fullcalendar.css', dirname(__FILE__)));*/
+				plugins_url('lib/fullcalendar/dist/fullcalendar.css',
+				dirname(__FILE__)));*/
 		wp_enqueue_style('bookschedule',
 				plugins_url('css/bookschedule.css', dirname(__FILE__)));
 		wp_enqueue_script('bookschedule',
@@ -1031,14 +994,15 @@ class BookSchedule {
 			$id = uniqid();
 
 			echo '<div id="' . $id . '" class="bsBookingPopup">'
-					. '<div id="' . $id . 'button" class="button">'
+					. '<div id="' . $id . 'bookingsButton" class="button">'
 					. __('My Bookings and Inquires', 'book_schedule') . '</div>'
 					. '<div class="bookingsFrame" id="' . $id . 'bookingsFrame">'
 					. '<div id="' . $id . 'message" class="message"></div>'
-					. '<div id="' . $id . 'bookings" class="bookings">';
-			echo '</div></div></div>';
+					. '<div id="' . $id . 'bookings" class="bookings"></div>'
+					. '<div class="calendarFrame" id="' . $id . 'calendarFrame"></div>'
+					. '</div></div>';
 			if (($data = $me->getBookingsData(null, null, true))) {
-				$data = json_encode($data);
+				$data = str_replace('\'', '\\\'', json_encode($data));
 			} else {
 				$data = '';
 			}
@@ -1267,23 +1231,6 @@ class BookSchedule {
 	}
 
 	/**
-	 * Prints the timings metabox in the post edit view.
-	 *
-	 * @param $post Object The object of the item that is being edited
-	 * @param $metabox array The metabox data.
-	 */
-	function printTimingMeta($post, $metabox) {
-		$id = uniqid();
-		// Get the type of event
-		if ($type = static::types($post->post_type)) {
-			echo '<div id="' . $id . '"></div>';
-			echo '<script type="text/javascript">'
-					. 'bS.times.init(\'' . $id . '\', \'' . $type['type'] . '\');'
-					. '</script>';
-		}
-	}
-
-	/**
 	 * Prints the costs metabox in the post edit view.
 	 *
 	 * @param $post Object The object of the item that is being edited.
@@ -1292,10 +1239,8 @@ class BookSchedule {
 	function printCostsMeta($post, $metabox) {
 		$id = uniqid();
 		echo '<div id="' . $id . '"></div>';
-		echo '<a class="button" onclick="bS.costs.add(\'' . $id . '\')">'
-				. __('Add Option', 'book_schedule') . '</a>';
 		echo '<script type="text/javascript">'
-				. 'bS.costs.init(\'' . $id . '\');'
+				. 'jQuery(function() {bS.costs.init(\'' . $id . '\');})'
 				. '</script>';
 	}
 
