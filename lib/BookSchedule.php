@@ -226,6 +226,15 @@ class BookSchedule {
 							'version' => array(
 								'type' => 'internal',
 							),
+							'haveArchives' => array(
+								'title' => __('Have archives', 'book_schedule'),
+								'description' => __('If this option is checked, the '
+										. 'the items will be configured to have an '
+										. 'archives page.',
+										'book_schedule'),
+								'type' => 'boolean',
+								'default' => true,
+							),
 							'showPopup' => array(
 								'title' => __('Show booking pop-up', 'book_schedule'),
 								'description' => __('If this option is checked, the '
@@ -321,6 +330,8 @@ class BookSchedule {
 
 			$me = static::instance();
 
+			$haveArchive = static::$settings->haveArchives;
+
 			if (($types = static::types())) {
 				foreach ($types as $t => &$type) {
 					/// @todo Remove once slug is type checked
@@ -356,7 +367,7 @@ class BookSchedule {
 							'supports' => array('title', 'editor', 'excerpt', 'thumbnail',
 									'trackbacks', 'revisions'),
 							/// @todo 'taxonomies' => array(),
-							'has_archive' => true,
+							'has_archive' => ($haveArchive ? true : false),
 					));
 				}
 			}
