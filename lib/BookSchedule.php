@@ -10,6 +10,7 @@ class BookSchedule {
 	protected static $types = null;
 	protected static $idPre = 'bs_';
 	protected static $locationType = 'bs_locations';
+	protected static $coststimesMeta = 'bs_coststimes';
 	protected static $bookingType = 'bs_bookings';
 	protected static $popupInserted = false;
 	protected static $cookie = 'bookschedule';
@@ -466,13 +467,8 @@ class BookSchedule {
 							'normal', 'high', array($type));
 				}
 				
-				// Location Box
-				add_meta_box('location', __('Location ',
-						'book_schedule'), array(&$me, 'printLocationMeta'),
-						$type['slug'], 'normal', 'high', array($type));
-				
 				// Running and Costs Box
-				add_meta_box('timings', __("$type[singular] Times and Costs",
+				add_meta_box('timings', __("$type[singular] Locations, Times and Costs",
 						'book_schedule'), array(&$me, 'printCostsMeta'), $type['slug'],
 						'normal', 'high', array($type));
 				
@@ -635,6 +631,7 @@ class BookSchedule {
 			}
 		}
 		/* OK, it's safe for us to save the data now. */
+		// Save location link
 		if (isset($_POST['location'])) {
 			// Check it is a valid location
 			if (($id = (intval($_POST['location'])))) {
@@ -643,6 +640,12 @@ class BookSchedule {
 					update_post_meta($postId, static::$locationType, $id);
 				}
 			}
+		}
+
+		// Save costs information
+		if (isset($_POST['coststimes'])) {
+			/// @todo Validate
+			update_post_meta($postId, static::$coststimesMeta, $_POST['coststimes']);
 		}
 		
 		// Get the post type information
@@ -670,6 +673,33 @@ class BookSchedule {
 				}
 			}
 		}
+	}
+
+	/**
+	 * Handles the retrieving of locations for the locations, times and costs
+	 * metabox.
+	 * @todo Add nonce
+	 */
+	static function ajaxGetLocations() {
+		$me = static::instance();
+		$error = false;
+		
+		// Get locations
+		$args = array('post_type' => static::$locationType);
+
+		$locations = array();
+		$locationPosts = get_posts($args);
+
+		foreach($locationPosts as &$location) {
+			$locations[$location->ID] = $location->post_title;
+		}
+
+		// Return information
+		header('Content-Type: application/json');
+		
+		echo json_encode($locations);
+		
+		exit;
 	}
 
 	/**
@@ -1249,40 +1279,14 @@ class BookSchedule {
 	 */
 	function printCostsMeta($post, $metabox) {
 		$id = uniqid();
+		// Get costs metadata
+		$data = get_post_meta($post->ID, static::$coststimesMeta, true);
+
 		echo '<div id="' . $id . '"></div>';
 		echo '<script type="text/javascript">'
-				. 'jQuery(function() {bS.costs.init(\'' . $id . '\');})'
-				. '</script>';
-	}
-
-	function printLocationMeta($post, $metabox) {
-		$id = uniqid();
-
-		// Get current value
-		$data = get_post_meta($post->ID, static::$locationType, true);
-
-		echo '<p><label for="' . $id . '">' . __('Location:', 'book_schedule')
-		. '</label> <select name="location"><option></option>';
-
-		// Get locations
-		$args = array(
-				'post_type' => static::$locationType,
-				'posts_per_page' => -1,
-		);
-
-		if (($locations = get_posts($args))) {
-			foreach ($locations as &$location) {
-				echo '<option value="' . $location->ID . '"' 
-						. ($data ? ($data == $location->ID ? ' selected' : '') : '') 
-						. '>' . $location->post_title . '</option>';
-			}
-		}
-
-		echo '</select> ';
-		echo '<a target="_blank" href="' . admin_url('post-new.php?post_type='
-				. static::$locationType) . '">' . __('Add Location', 'book_schedule')
-				. '</a>';
-		echo '</p>';
+				. 'jQuery(function() {bS.costs.init(\'' . $id . '\', \''
+				. admin_url('admin-ajax.php'). '\', \'' . $data
+				. '\');})</script>';
 	}
 
 	function printLocationDetailsMeta($post, $metabox) {
@@ -1360,242 +1364,109 @@ class BookSchedule {
 	 * @param $tag string Tag of the shortcode.
 	 */
 	static function doShortcode($atts, $content, $tag) {
-		global $wpdb;
+		global $wpdb, $wp_query, $more;
 
 		$me = static::instance();
 
-		$html = '';
-
-		// Fill out the attributes with the default
 		switch ($tag) {
-			case 'ghimage':
-				$classO = 'gh_image_class';
-				$classAO = 'gh_image_class_append';
-				$caption = 'gh_image_description';
-				break;
-			case 'ghthumb':
-				$classO = 'gh_thumb_class';
-				$classAO = 'gh_thumb_class_append';
-				$caption = 'gh_thumb_description';
-				break;
-			case 'ghalbum':
-				$classO = 'gh_album_class';
-				$classAO = 'gh_album_class_append';
-				$caption = 'gh_album_description';
-				break;
-		}
+			case 'bs-list':
+				// Check we have the required information
+				if (!isset($atts['type']) || !static::types($atts['type'])) {
+					return;
+				}
 
-		// `id="<id1>,<id2>,..."` - list of photos (some sort of query or list)
-		// (`ghalbum` `ghthumbnail` `ghimage`)
-		$parts = explode(',', $atts['id']);
-		$ids = array();
-		$idP = array();
-		$folders = array();
-		$taken = array();
-		$query = array();
+				// Build query
+				$args = array(
+					'post_type' => $atts['type']
+				);
 
-		foreach ($parts as $p => &$part) {
-			if (strpos($part, '=') !== false) {
-				$like = false;
-				$part = explode('=',$part);
-				if (isset($part[1]) && $part[1]) {
-					switch($part[0]) {
-						case 'rfolder':
-							$like = true;
-						case 'folder':
-							$fids = explode('|', $part[1]);
-							// Make sure fids are only numbers
-							$f = 0;
-							while ($f < count($fids)) {
-								if (!gHisInt($fids[$f])) {
-									array_splice($fids, $f, 1);
-								} else {
-									$f++;
-								}
-							}
-							if ($fids && ($result = $wpdb->get_col('SELECT dir FROM '
-									. $me->dirTable . ' WHERE id IN (' . join(',', $fids)
-									. ')'))) {
-								$folders = array_merge($folders, $result);
-							}
-							break;
-						case 'taken':
-							if (strpos($part[1], '|') !== false) {
-								$part[1] = explode('|', $part[1]);
+				// Check if we have categories
+				if (isset($atts['category'])) {
+					$atts['category'] = explode(',', $atts['category']);
 
-							// Check the dates are valid
+					$c = 0;
+					while ($c < count($atts['category'])) {
+						if (is_numeric($atts['category'][$c])) {
+							$atts['category'][$c] = intval($atts['category'][$c]);
+							if ($atts['category'][$c]) {
+								$c++;
+								continue;
 							}
-							break;
-						case 'tags':
-							$query[$part[0]] = $me->parseLogic($part[1], $part[0]
-									. ' REGEXP \'(,|^)%s(,|$)\'', true);
-							break;
-						case 'title':
-						case 'comment':
-							$query[$part[0]] = $me->parseLogic($part[1], $part[0]
-									. ' = \'%s\'');
-							break;
-						default:
-							// Ignore as not valid
-							continue;
+						}
+						array_splice($atts['category'], $c, 1);
 					}
-				} else {
-					continue;
+
+					if (count($atts['category'])) {
+						$args['category'] = $atts['category'];
+					}
 				}
-			} else {
-				if (is_numeric($part)) {
-					$ids[] = $part;
-					$idP[] = $p + 1;
-				}
-			}
-		}
 
-		$w = array();
+				// Save original query
+				$originalQuery = $wp_query;
+				$originalMore = $more;
+				$more = 0;
+				$wp_query = new WP_Query($args);
 
-		// Build Ids
-		if ($ids) {
-			$w[] = 'id IN (' . join(', ', $ids) . ')';
-		}
+				if (have_posts()) {
+					ob_start();
 
-		// Build Folders
-		if ($folders) {
-			$q = array();
-			foreach ($folders as &$f) {
-				$q[] = 'file LIKE (\'' . preg_replace('/([%\\\'])/', '\\\1', $f)
-						. DIRECTORY_SEPARATOR . '%\')';
-			}
-			$query['folders'] = join(' OR ', $q);
-		}
-
-		if ($query) {
-			$w[] = '((' . join(') AND (', array_values($query)) . ')' 
-			. (isset($atts['include_excluded']) && $atts['include_excluded']
-			? ' AND excluded=0' : '') . ')';
-		}
-		$q = 'SELECT * FROM ' . $me->imageTable 
-				. ($w ? ' WHERE ' . join(' OR ', $w) : '');
-		$images = $wpdb->get_results($q, OBJECT_K);
-
-		// Rebuild array if based on ids @todo Implement attribute for this
-		// Determine position of specified images based on positional weighting
-		if ($ids) {
-			$weight = 0;
-			foreach ($idP as $i) {
-				$weight += $i;
-			}
-
-			$weight = $weight/count($ids);
-
-			$idImages = array();
-
-			foreach ($ids as $i) {
-				$idImages[$i] = $images[$i];
-				unset($images[$i]);
-			}
-
-			$newImages = array();
-			if ($weight <= (count($parts)/2)) {
-				$images = array_merge($idImages, $images);
-				/** @todo Remove
-				foreach ($idImages as &$i) {
-					$newImages[] = $i;
-				}
-				foreach ($images as &$i) {
-					$newImages[] = $i;
-				}*/
-			} else {
-				$images = array_merge($images, $idImages);
-				/** @todo Remove
-				foreach ($images as &$i) {
-					$newImages[] = $i;
-				}
-				foreach ($idImages as &$i) {
-					$newImages[] = $i;
-				}*/
-			}
-		}
-
-		// `group="<group1>"` - id for linking photos to scroll through with
-		// lightbox (`ghthumbnail` `ghimage`)
-		if (!isset($atts['group'])
-				&& static::$settings->get_option('gh_group')) {
-			$atts['group'] = 'group';
-		}
-
-		// `class="<class1> <class2> ...` - additional classes to put on the images
-		// (`ghthumbnail` `ghimage`)
-		if (!isset($atts['class'])
-				|| static::$settings->get_option($classAO)) {
-			if (!isset($atts['class'])) {
-				$atts['class'] = '';
-			}
-
-			$atts['class'] .= ' ' . static::$settings->get_option($classO);
-		}
-
-		// `caption="(none|title|comment)"` - Type of caption to show. Default set
-		// in plugin options (`ghalbum` `ghthumbnail` `ghimage`)
-		$captionMap = array(
-				'ghalbum' => 'gh_album_description',
-				'ghthumb' => 'gh_thumb_description',
-				'ghimage' => 'gh_image_description'
-		);
-		if (!isset($atts['caption'])) {
-			$atts['caption'] = static::$settings->get_option($captionMap[$tag]);
-		}
-
-		// add_title
-		$atts['add_title'] = static::$settings->get_option('gh_add_title');
-
-		// `popup_caption="(none|title|comment)"` - Type of caption to show on
-		//	popup. Default set in plugin options (`ghalbum` `ghthumbnail`
-		// `ghimage`)
-		if (!isset($atts['popup_caption'])) {
-			$atts['popup_caption'] =
-					static::$settings->get_option('gh_popup_description');
-		}
-		
-		// `link="(none|popup|<url>)"` - URL link on image, by default it will be
-		// the image url and will cause a lightbox popup
-		/// @todo Make it a setting?
-		if (!isset($atts['link'])) {
-			$atts['link'] = 'popup';
-		}
-
-		switch ($tag) {
-			case 'ghimage':
-				// `size="(<width>x<height>)"` - size of image (`ghimage`)
-				if (isset($atts['size']) && $atts['size']) {
-					$atts['size'] = explode('x', $atts['size']);
-					if (count($atts['size']) == 2 && gHisInt($atts['size'][0])
-							&& gHisInt($atts['size'][1])) {
-						$atts['size'] = array('width' => $atts['size'][0],
-								'height' => $atts['size'][1]);
+					
+					if (locate_template(array('bookable-' . $atts['type'] . '.php',
+							'bookable.php'))) {
+						get_template_part('bookable', $atts['type']);
 					} else {
-						$atts['size'] = false;
+						while(have_posts()) {
+							the_post();
+							?>
+							<article id="post-<?php the_ID(); ?>" <?php post_class(); ?> >
+								<div class="blog_text">
+									<?php
+										if (has_post_thumbnail()) {
+											echo '<figure><a href="' 
+													. get_permalink() . '" >';
+											echo get_the_post_thumbnail(get_the_ID(), 'thumbnail', array(
+													'title'	=> trim(strip_tags(get_the_title()))
+													));
+											echo '</a></figure>';
+										}
+									?>
+									<div class="text">
+										<h2>
+											<a href="<?php the_permalink(); ?>">
+												<?php the_title(); ?>
+											</a>
+										</h2>
+										<p>
+											<?php 
+												if (has_excerpt()) {
+													echo the_excerpt();
+												} else {
+												}
+											?>
+										</p>
+									</div>
+								</div>
+							</article>
+							<?php
+						}
 					}
+
+
+					// Restore query back to the original
+					$wp_query = $originalQuery;
+					$more = $originalMore;
+
+					$html = ob_get_clean();
 				} else {
-					$atts['size'] = false;
-				}
-
-				$html = $me->printImage($images, $atts);
-				break;
-			case 'ghthumb':
-				$atts['type'] = static::$settings->get_option('gh_thumb_album');
-			case 'ghalbum':
-				// `type="<type1>"` - of album (`ghalbum`)
-				// Check we have a valid album, if not, use the thumbnail one
-				$albums = static::getAlbums();
-				if (!isset($atts['type']) || !isset($albums[$atts['type']])) {
-					$atts['type'] = static::$settings->get_option('gh_thumb_album');
-				}
-
-				if (isset($atts['type']) && isset($albums[$atts['type']])) {
-					$html = $albums[$atts['type']]['class']::printAlbum($images, $atts);
+					if (isset($atts['none'])) {
+						$html = $atts['none'];
+					} else {
+						$html = __('None found', 'book_schedule');
+					}
 				}
 				break;
 		}
-		
+
 		return $html;
 	}
 

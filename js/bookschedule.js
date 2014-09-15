@@ -291,11 +291,156 @@ var bS = (function() {
 		}
 	}
 
+	var ajaxurl;
+
+	var locations = {
+		locations: null,
+		locationObjects: [],
+
+		newLocation: function(obj, value) {
+			if (obj) {
+				locations.locationObjects.push(obj);
+
+				if (locations.locations) {
+					locations.updateLocationList(obj, value);
+				} else {
+					$.post(ajaxurl + '?action=bs_locations', {},
+							rFunc(locations.receiveLocations, this, true, obj, value));
+				}
+			}
+		},
+
+		receiveLocations: function(obj, value, data, textStatus, jqXHR) {
+			if (data) {
+				locations.locations = data;
+				if (obj) {
+					locations.updateLocationList(obj, value);
+				} else {
+					var o;
+					for (o in locations.locationObjects) {
+						locations.updateLocationList(locations.locationObjects[o]);
+					}
+				}
+			}
+		},
+
+		/// @todo Change so that it does not wipe values but appends/deletes
+		updateLocationList: function(obj, value) {
+			var l, z, value
+			
+			if (!value) {
+				value = obj.val();
+			}
+
+			// Clear current locations
+			obj.html('');
+
+			// Create blank location
+			obj.append(z = $(document.createElement('option')));
+
+			for (l in locations.locations) {
+				obj.append(z = $(document.createElement('option')));
+				z.val(l);
+				z.html(locations.locations[l]);
+				if (value && value == l) {
+					z.attr('checked', true);
+				}
+			}
+		},
+	};
+
 	/**
 	 * Internal functions for costs
 	 */
 	var costs = {
-		drawOption: function (obj, id) {
+		drawLimit: function(obj, id, value) {
+			var z, i, data = {};
+
+			obj.html('<header>Limit</header>');
+
+			i = uniqid();
+			obj.append(z = $(document.createElement('label')));
+			z.html('Size: ');
+			z.attr('for', i);
+			obj.append(data.size = $(document.createElement('input')));
+			data.size.attr('type', 'number');
+			data.size.attr('id', i);
+
+			obj.append(' ');
+			i = uniqid();
+			obj.append(data.all = $(document.createElement('input')));
+			data.all.attr('type', 'checkbox');
+			data.all.attr('id', i);
+			obj.append(z = $(document.createElement('label')));
+			z.html(' pay for all');
+			z.attr('for', i);
+	
+			obj.append(' ');
+			i = uniqid();
+			obj.append(z = $(document.createElement('label')));
+			z.html('Number Available: ');
+			z.attr('for', i);
+			obj.append(data.number = $(document.createElement('input')));
+			data.number.attr('type', 'number');
+			data.number.attr('id', i);
+
+			// @todo Help text obj.append('<footer>The size 
+
+			if (value) {
+				data.size.val(value.size);
+				data.number.val(value.number);
+				if (data.all) {
+					data.all.attr('checked', true);
+				}
+			} else {
+				data.size.val('1');
+				data.number.val('1');
+			}
+			data.size.change(rFunc(ObjectBuilder.reparse, this, false, id));
+			data.number.change(rFunc(ObjectBuilder.reparse, this, false, id));
+			data.all.change(rFunc(ObjectBuilder.reparse, this, false, id));
+
+			obj.data(data);
+		},
+
+		parseLimit: function(obj, id) {
+			var data = obj.data();
+
+			return value = {
+				type: 'limit',
+				size: data.size.val(),
+				number: data.number.val(),
+				all: (data.all.attr('checked') ? true : false)
+			};
+		},
+
+		drawLocation: function(obj, id, value) {
+			var z, i, data = {};
+
+			obj.html('');
+			i = uniqid();
+
+			obj.append(z = $(document.createElement('label')));
+			z.html('Location: ');
+			z.attr('for', i);
+			obj.append(data.location = $(document.createElement('select')));
+			data.location.attr('id', i);
+			locations.newLocation(data.location, (value ? value.location : null));
+			data.location.change(rFunc(ObjectBuilder.reparse, this, false, id));
+
+			obj.data(data);
+		},
+
+		parseLocation: function(obj, id) {
+			var data = obj.data();
+
+			return value = {
+				type: 'location',
+				location: data.location.val(),
+			};
+		},
+
+		drawOption: function (obj, id, value) {
 			var z, i, data = {};
 
 			obj.html('Option');
@@ -306,6 +451,10 @@ var bS = (function() {
 			z.attr('for', i);
 			obj.append(data.label = $(document.createElement('input')));
 			data.label.attr('id', i);
+			if (value) {
+				data.label.val(value.label);
+			}
+			data.label.change(rFunc(ObjectBuilder.reparse, this, false, id));
 
 			data.pad = ObjectBuilder.createPad(id, obj);
 
@@ -324,10 +473,10 @@ var bS = (function() {
 			};
 		},
 
-		drawExclusion: function (obj, id) {
+		drawExclusion: function (obj, id, value) {
 			var z, y, i, data = {};
 
-			obj.html('Exclusion');
+			obj.html('<header>Exclusion</header>');
 			i = uniqid();
 
 			obj.append(y = $(document.createElement('span')));
@@ -335,11 +484,15 @@ var bS = (function() {
 			z.html('Label:');
 			z.attr('for', i);
 			y.append(data.label = $(document.createElement('input')));
+			if (value) {
+				data.label.val(value.label);
+			}
 			data.label.attr('id', i);
+			data.label.change(rFunc(ObjectBuilder.reparse, this, false, id));
 
 			data.pad = ObjectBuilder.createPad(id, obj, {
 				multiple: true
-			});
+			}, (value ? value.exclusion : null));
 
 			obj.data(data);
 		},
@@ -354,20 +507,24 @@ var bS = (function() {
 			};
 		},
 
-		drawSpecificDate: function (obj, id) {
+		drawSpecificDate: function (obj, id, value) {
 			var z, i, data = {};
 
 			obj.html('Date ');
 			
 			obj.append(data.date = $(document.createElement('input')));
+			if (value) {
+				data.date.val(value.date);
+			}
 			data.date.datepicker({
 				dateFormat: 'yy-mm-dd'
 			});
+			data.date.change(rFunc(ObjectBuilder.reparse, this, false, id));
 
 			data.pad = ObjectBuilder.createPad(id, obj, {
 				multiple: true,
 				types: ['part-time', 'part-detail']
-			});
+			}, (value ? value.details : null));
 
 			obj.data(data);
 		},
@@ -382,20 +539,26 @@ var bS = (function() {
 			};
 		},
 
-		drawDays: function (obj, id) {
+		drawDays: function (obj, id, value) {
 			var z, data = {};
 		
 			obj.html('');
 			obj.append(data.number = $(document.createElement('input')));
 			data.number.attr('type', 'number');
-			data.number.val('1');
+			if (value) {
+				data.number.val(value.number);
+			} else {
+				data.number.val('1');
+			}
+			data.number.change(rFunc(ObjectBuilder.reparse, this, false, id));
+
 			obj.append(z = $(document.createElement('span')));
 			z.html(' day(s)');
 
 			data.pad = ObjectBuilder.createPad(id, obj, {
 				multiple: true,
 				types: ['part-time', 'part-detail']
-			});
+			}, (value ? value.details : null));
 			
 			obj.data(data);
 		},
@@ -410,7 +573,7 @@ var bS = (function() {
 			};
 		},
 
-		drawTime: function (obj, id) {
+		drawTime: function (obj, id, value) {
 			var z, y, data = {};
 			
 			obj.html('Time: ');
@@ -418,10 +581,16 @@ var bS = (function() {
 			obj.append(data.start = $(document.createElement('input')));
 			obj.append(' - ');
 			obj.append(data.end = $(document.createElement('input')));
+			if (value) {
+				data.start.val(value.start);
+				data.end.val(value.end);
+			}
 			$.timepicker.timeRange(data.start, data.end, {
 				timeFormat: 'HH:mm',
 				stepMinute: 5
 			});
+			data.start.change(rFunc(ObjectBuilder.reparse, this, false, id));
+			data.end.change(rFunc(ObjectBuilder.reparse, this, false, id));
 
 			obj.data(data);
 		},
@@ -443,7 +612,7 @@ var bS = (function() {
 			year: { ly: 'Yearly', ls: 'year(s)' },
 		},
 
-		drawRepeatOn: function(id, obj, data) {
+		drawRepeatOn: function(id, obj, data, value) {
 			if (!data) {
 				data = obj.data();
 			}
@@ -478,18 +647,27 @@ var bS = (function() {
 						z.val(d);
 						data.onPad.append(' ');
 						data.on.push(z);
+						if (value && value.on.indexOf(d) !== -1) {
+							z.attr('checked', true);
+						}
+						z.change(rFunc(ObjectBuilder.reparse, this, false, id));
 					}
 					break;
 				case 'month':
 					data.onPad.append(data.onType = $(document.createElement('select')));
+					data.onType.change(rFunc(ObjectBuilder.reparse, this, false, id));
 					break;
 				case 'year':
 					data.onPad.append(' on the ');
 					data.onPad.append(data.on = $(document.createElement('input')));
+					if (value) {
+						data.on.val(value.on);
+					}
 					data.on.datepicker({
 						dateFormat: 'mm-dd',
 						changeYear: false
 					});
+					data.on.change(rFunc(ObjectBuilder.reparse, this, false, id));
 					break;
 			}
 			
@@ -498,7 +676,7 @@ var bS = (function() {
 			}
 		},
 
-		drawRepeat: function (obj, id) {
+		drawRepeat: function (obj, id, value) {
 			var z, y, i, data = {};
 			var type; /// @todo current value
 				
@@ -509,32 +687,83 @@ var bS = (function() {
 				z.append(y = $(document.createElement('option')));
 				y.html(costs.repeats[i]['ly']);
 				y.val(i);
+				if (value && value.repeatType == i) {
+					y.attr('selected', true);
+				}
 			}
 			z.change(rFunc(costs.drawRepeatOn, this, false, id, obj));
+			z.change(rFunc(ObjectBuilder.reparse, this, false, id));
 			data.type = z;
 
 			// every
 			obj.append(' every ');
 			obj.append(data.freq = $(document.createElement('input')));
-
+			if (value) {
+				data.freq.val(value.frequency);
+			} else {
+				data.freq.val('1');
+			}
+			data.freq.change(rFunc(ObjectBuilder.reparse, this, false, id));
+	
 			obj.append(data.freqLabel = $(document.createElement('span')));
 
 			// on the
 			obj.append(data.onPad = $(document.createElement('span')));
 			
 			// Draw on the
-			costs.drawRepeatOn(id, null, data);
+			costs.drawRepeatOn(id, null, data, value);
 
 			//t[id]['repeatPad'].append(' until ');
 			//t[id]['repeatPad'].append(data['untilPlace'] = $(document.createElement('span')));
 			//data['untilPlace'].append(repeats[type]['until']);
 			
-			data.pad = ObjectBuilder.createPad(id, obj, {});
+			data.pad = ObjectBuilder.createPad(id, obj, {
+				multiple: true
+			}, (value ? value.data : null));
 			
 			obj.data(data);
 		},
 
 		parseRepeat: function (obj, id) {
+			var data;
+			if (data = obj.data()) {
+				var parsed = {
+					type: 'repeat',
+					repeatType: data.type.val(),
+					frequency: data.freq.val(),
+					data: ObjectBuilder.parsePadObject(id, data.pad)
+				};
+
+				parsed = costs.parseRepeatOn(id, parsed, data);
+
+				return parsed;
+			}
+		},
+
+		parseRepeatOn: function (id, parsed, data) {
+			var type = data.type.val();
+			console.log('Type of repeat is ' + type);
+			data.freqLabel.html(' ' + costs.repeats[type]['ls']);
+			switch (type) {
+				case 'day':
+					break;
+				case 'week':
+					parsed.on = [];
+					for (d in data.on) {
+						if (data.on[d].attr('checked')) {
+							parsed.on.push(data.on[d].val());
+						}
+					}
+					break;
+				case 'month':
+					parsed.onType = data.onType.val();
+					break;
+				case 'year':
+					parsed.on = data.on.val();
+					break;
+			}
+
+			return parsed;
 		},
 	
 		pricePers: {
@@ -545,20 +774,30 @@ var bS = (function() {
 			monthly: 'per month',
 		},
 
-		drawPrice: function (obj, id) {
+		drawPrice: function (obj, id, value) {
 			var z, i, data = {};
 
 			obj.html('Price: ');
 			
 			obj.append(data.price = $(document.createElement('input')));
 			data.price.attr('type', 'number');
+			if (value) {
+				data.price.val(value.price);
+			}
+			data.price.change(rFunc(ObjectBuilder.reparse, this, false, id));
 			
 			obj.append(data.per = $(document.createElement('select')));
 			for (i in costs.pricePers) {
 				data.per.append(z = $(document.createElement('option')));
 				z.html(costs.pricePers[i]);
 				z.val(i);
+				if (value) {
+					if (value.per == i) {
+						z.attr('selected', true);
+					}
+				}
 			}
+			data.per.change(rFunc(ObjectBuilder.reparse, this, false, id));
 			
 			obj.data(data);
 		},
@@ -573,13 +812,17 @@ var bS = (function() {
 			};
 		},
 
-		drawDetail: function (obj, id) {
+		drawDetail: function (obj, id, value) {
 			var z, data = {};
 
 			obj.html('Details:'),
 			
 			obj.append(data.input = $(document.createElement('textarea')));
-			
+			if (value) {
+				data.input.val(value.detail);
+			}
+			data.input.change(rFunc(ObjectBuilder.reparse, this, false, id));
+
 			obj.data(data);
 		},
 
@@ -797,6 +1040,16 @@ var bS = (function() {
 					label: 'Detail',
 					draw: costs.drawDetail,
 					parse: costs.parseDetail,
+				},
+				location: {
+					label: 'Location',
+					draw: costs.drawLocation,
+					parse: costs.parseLocation,
+				},
+				limit: {
+					label: 'Limit',
+					draw: costs.drawLimit,
+					parse: costs.parseLimit,
 				},
 				exclusion: {
 					label: 'Exclusion',
@@ -1103,7 +1356,11 @@ var bS = (function() {
 		 * Handles the drawing and actions associated with the costs metabox.
 		 */
 		costs: {
-			init: function(id) {
+			init: function(id, url, value) {
+				if (url) {
+					ajaxurl = url;
+				}
+
 				if (!c[id]) {
 					d('creating new costs section ' + id);
 					c[id] = {
@@ -1120,18 +1377,23 @@ var bS = (function() {
 						'toggleLabel': 'help'
 					});
 
-					z.html('<p>If you leave this blank, the event will be free termed ' +
-							'event that can be booked.</p>');
+					z.html('<p>In this section detail the times, locations and cost of '
+							+ 'the bookable item by clicking and dragging components onto '
+							+ 'the pad. For detailed instructions, visit the documentation '
+							+ 'page.</p>'
+							+ '<p>If you leave this blank, the event will be free termed '
+							+ 'event that can be booked.</p>');
 
 					// Create input
 					c[id].pad.append(z = $(document.createElement('input')));
 					z.attr('type', 'hidden');
+					z.attr('name', 'coststimes');
 
 					c[id].pad.append(y = $(document.createElement('div')));
 					ObjectBuilder.create(y, costs.elements, {
 							input: z,
 							multiple: true,
-							});
+							}, value);
 				}
 			},
 		},

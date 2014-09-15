@@ -21,7 +21,7 @@ if (!class_exists('BookSchedule')) {
 		if (is_plugin_active('book-schedule/book-schedule.php')) {
 			BookSchedule::checkVersion();
 			// Shortcodes
-			//add_shortcode('ghalbum', array('BookSchedule', 'doShortcode'));
+			add_shortcode('bs-list', array('BookSchedule', 'doShortcode'));
 
 			add_action('wp_enqueue_scripts', array('BookSchedule', 'enqueue'));
 			add_action('admin_enqueue_scripts', array('BookSchedule', 'adminEnqueue'));
@@ -32,6 +32,7 @@ if (!class_exists('BookSchedule')) {
 			add_action('get_footer', array('BookSchedule', 'printBookingPopup'));
 
 			// Handle AJAX requests (from bookings)
+			add_action('wp_ajax_bs_locations', array('BookSchedule', 'ajaxGetLocations'));
 			add_action('wp_ajax_bs_add', array('BookSchedule', 'ajaxAdd'));
 			add_action('wp_ajax_nopriv_bs_add', array('BookSchedule', 'ajaxAdd'));
 			add_action('wp_ajax_bs_remove', array('BookSchedule', 'ajaxRemove'));
