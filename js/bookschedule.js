@@ -605,6 +605,68 @@ var bS = (function() {
 			};
 		},
 
+		timeUnits: {
+			min: 'minute(s)',
+			hour: 'hour(s)',
+		},
+
+		drawUserTime: function (obj, id, value) {
+			var z, y, i, data = {};
+			
+			obj.html('<header>User-specifiable Time</header>');
+
+			obj.append(y = $(document.createElement('div')));
+			y.append('Block size range: ');
+			y.append(data.minLength = $(document.createElement('input')));
+			data.minLength.attr('type', 'number');
+			y.append(' - ');
+			y.append(data.maxLength = $(document.createElement('input')));
+			data.maxLength.attr('type', 'number');
+			y.append(' ');c
+			y.append(data.lengthUnit = $(document.createElement('select')));
+			for (i in costs.timeUnits) {
+				data.lengthUnit.append(z = $(document.createElement('option')));
+				z.val(i);
+				z.html(costs.timeUnits[i]);
+				if (value && value.lengthUnit == i) {
+					z.attr('selected', true);
+				}
+			}
+			
+			obj.append(y = $(document.createElement('div')));
+			y.append('Time availability: ');
+			y.append(data.start = $(document.createElement('input')));
+			y.append(' - ');
+			y.append(data.end = $(document.createElement('input')));
+			if (value) {
+				data.minLength.val(value.minLength);
+				data.maxLength.val(value.maxLength);
+				data.start.val(value.start);
+				data.end.val(value.end);
+			}
+			$.timepicker.timeRange(data.start, data.end, {
+				timeFormat: 'HH:mm',
+				stepMinute: 5
+			});
+			data.start.change(rFunc(ObjectBuilder.reparse, this, false, id));
+			data.end.change(rFunc(ObjectBuilder.reparse, this, false, id));
+
+			obj.data(data);
+		},
+
+		parseUserTime: function (obj, id) {
+			var data = obj.data();
+			
+			return {
+				type: 'userTime',
+				minLength: data.minLength.val(),
+				maxLength: data.maxLength.val(),
+				lengthUnit: data.lengthUnit.val(),
+				start: data.start.val(),
+				end: data.end.val()
+			};
+		},
+
 		repeats: {
 			day: { ly: 'Daily', ls: 'day(s)' },
 			week: { ly: 'Weekly', ls: 'week(s)' },
@@ -718,7 +780,8 @@ var bS = (function() {
 			//data['untilPlace'].append(repeats[type]['until']);
 			
 			data.pad = ObjectBuilder.createPad(id, obj, {
-				multiple: true
+				multiple: true,
+				types: ['part-repeat', 'part-days', 'part-exclusion'],
 			}, (value ? value.data : null));
 			
 			obj.data(data);
@@ -833,6 +896,38 @@ var bS = (function() {
 				type: 'detail',
 				detail: data.input.val()
 			};
+		},
+
+		drawLink: function (obj, id, value) {
+			/*var z, y, data = {};
+			
+			obj.html('Time: ');
+
+			obj.append(data.start = $(document.createElement('input')));
+			obj.append(' - ');
+			obj.append(data.end = $(document.createElement('input')));
+			if (value) {
+				data.start.val(value.start);
+				data.end.val(value.end);
+			}
+			$.timepicker.timeRange(data.start, data.end, {
+				timeFormat: 'HH:mm',
+				stepMinute: 5
+			});
+			data.start.change(rFunc(ObjectBuilder.reparse, this, false, id));
+			data.end.change(rFunc(ObjectBuilder.reparse, this, false, id));
+
+			obj.data(data);*/
+		},
+
+		parseLink: function (obj, id) {
+			/*var data = obj.data();
+			
+			return {
+				type: 'time',
+				start: data.start.val(),
+				end: data.end.val()
+			};*/
 		},
 
 
@@ -1026,6 +1121,11 @@ var bS = (function() {
 					draw: costs.drawTime,
 					parse: costs.parseTime,
 				},
+				userTime: {
+					label: 'User-specifiable Time',
+					draw: costs.drawUserTime,
+					parse: costs.parseUserTime,
+				},
 				repeat: {
 					label: 'Repeat',
 					draw: costs.drawRepeat,
@@ -1050,6 +1150,11 @@ var bS = (function() {
 					label: 'Limit',
 					draw: costs.drawLimit,
 					parse: costs.parseLimit,
+				},
+				link: {
+					label: 'Linked booking',
+					draw: costs.drawLink,
+					parse: costs.parseLink,
 				},
 				exclusion: {
 					label: 'Exclusion',

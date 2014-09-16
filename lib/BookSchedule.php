@@ -471,11 +471,6 @@ class BookSchedule {
 				add_meta_box('timings', __("$type[singular] Locations, Times and Costs",
 						'book_schedule'), array(&$me, 'printCostsMeta'), $type['slug'],
 						'normal', 'high', array($type));
-				
-				// Linked Booking Box
-				add_meta_box('linkedBooking', __('Linked Bookings ',
-						'book_schedule'), array(&$me, 'printLinkMeta'),
-						$type['slug'], 'normal', 'high', array($type));
 			}
 		}
 
@@ -1299,22 +1294,6 @@ class BookSchedule {
 				. '</script>';
 	}
 
-	/**
-	 * Prints the linked booking metabox in the post edit view.
-	 *
-	 * @param $post Object The object of the item that is being edited.
-	 * @param $type array The item type information.
-	 */
-	function printLinkMeta($post, $type) {
-		$id = uniqid();
-		echo '<div id="' . $id . '"></div>';
-		echo '<a class="button" onclick="bS.bookingLink.add(\'' . $id . '\')">'
-				. __('Add Linked Booking', 'book_schedule') . '</a>';
-		echo '<script type="text/javascript">'
-				. 'bS.bookingLink.init(\'' . $id . '\');'
-				. '</script>';
-	}
-
 	function printItemsMeta($post) {
 		// Get the metadata
 		if (($data = get_post_meta($post->ID, static::$bookingType, true))) {
@@ -1370,15 +1349,22 @@ class BookSchedule {
 
 		switch ($tag) {
 			case 'bs-list':
+				$args = array();
 				// Check we have the required information
 				if (!isset($atts['type']) || !static::types($atts['type'])) {
-					return;
+					$types = static::types();
+					$atts['type'] = array();
+					foreach ($types as &$type) {
+						array_push($atts['type'], $type['slug']);
+					}
+					
+					if (static::types(get_post_type())) {
+						$args['post__not_in'] = array(get_the_ID());
+					}
 				}
 
 				// Build query
-				$args = array(
-					'post_type' => $atts['type']
-				);
+				$args['post_type'] = $atts['type'];
 
 				// Check if we have categories
 				if (isset($atts['category'])) {
@@ -1397,8 +1383,32 @@ class BookSchedule {
 					}
 
 					if (count($atts['category'])) {
-						$args['category'] = $atts['category'];
+						$args['category__in'] = $atts['category'];
 					}
+				}
+
+				if (isset($atts['order'])) {
+					$args['orderby'] = $atts['order'];
+				}
+
+				if (isset($atts['limit'])) {
+					if (is_numeric($atts['limit'])) {
+						$args['posts_per_page'] = intval($atts['limit']);
+					}
+				}
+
+				if (isset($atts['template']) && locate_template(
+						(is_array($atts['type']) ? array($atts['template'] . '.php')
+						: array($atts['template'] . '-' . $atts['type'] . '.php',
+						$atts['template'] . '.php')))) {
+					$slug = $atts['template'];
+				} else if (locate_template(
+						(is_array($atts['type']) ? array('bookable.php')
+						: array('bookable-' . $atts['type'] . '.php',
+						'bookable.php')))) {
+					$slug = 'bookable';
+				} else {
+					$slug = null;
 				}
 
 				// Save original query
@@ -1410,10 +1420,8 @@ class BookSchedule {
 				if (have_posts()) {
 					ob_start();
 
-					
-					if (locate_template(array('bookable-' . $atts['type'] . '.php',
-							'bookable.php'))) {
-						get_template_part('bookable', $atts['type']);
+					if ($slug) {
+						get_template_part($slug, $atts['type']);
 					} else {
 						while(have_posts()) {
 							the_post();
