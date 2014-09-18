@@ -3,3 +3,4 @@
 book-schedule-*.tgz
 book-schedule-*.zip
 book-schedule
+lib/currencies.json

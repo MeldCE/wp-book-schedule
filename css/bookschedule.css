@@ -1,3 +1,8 @@
+
+div.bsDetailsMeta h4 {
+	margin: 2px 0px;
+}
+
 div.bsBookingPopup {
 	position: fixed;
 	bottom: 0px;

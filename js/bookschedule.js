@@ -327,7 +327,7 @@ var bS = (function() {
 		/// @todo Change so that it does not wipe values but appends/deletes
 		updateLocationList: function(obj, value) {
 			var l, z, value
-			
+	
 			if (!value) {
 				value = obj.val();
 			}
@@ -343,7 +343,7 @@ var bS = (function() {
 				z.val(l);
 				z.html(locations.locations[l]);
 				if (value && value == l) {
-					z.attr('checked', true);
+					z.attr('selected', true);
 				}
 			}
 		},
@@ -356,7 +356,7 @@ var bS = (function() {
 		drawLimit: function(obj, id, value) {
 			var z, i, data = {};
 
-			obj.html('<header>Limit</header>');
+			obj.html('<h4>Limit</h4>');
 
 			i = uniqid();
 			obj.append(z = $(document.createElement('label')));
@@ -443,7 +443,7 @@ var bS = (function() {
 		drawOption: function (obj, id, value) {
 			var z, i, data = {};
 
-			obj.html('Option');
+			obj.html('<h4>Option</h4>');
 			i = uniqid();
 
 			obj.append(z = $(document.createElement('label')));
@@ -456,7 +456,7 @@ var bS = (function() {
 			}
 			data.label.change(rFunc(ObjectBuilder.reparse, this, false, id));
 
-			data.pad = ObjectBuilder.createPad(id, obj);
+			data.pad = ObjectBuilder.createPad(id, obj, {}, (value ? value.option : null));
 
 			obj.data(data);
 		},
@@ -467,16 +467,14 @@ var bS = (function() {
 			return value = {
 				type: 'option',
 				label: data.label.val(),
-				exclusion: ObjectBuilder.parsePadObject(id, data.pad, {
-					multiple: true
-				})
+				option: ObjectBuilder.parsePadObject(id, data.pad)
 			};
 		},
 
 		drawExclusion: function (obj, id, value) {
 			var z, y, i, data = {};
 
-			obj.html('<header>Exclusion</header>');
+			obj.html('<h4>Exclusion</h4>');
 			i = uniqid();
 
 			obj.append(y = $(document.createElement('span')));
@@ -830,18 +828,37 @@ var bS = (function() {
 		},
 	
 		pricePers: {
-			oneoff: '',
-			hourly: 'per hour',
-			daily: 'per day',
-			weekly: 'per week',
-			monthly: 'per month',
+			oneoff: {
+				label: ''
+			},
+			hourly: {
+				label: 'per hour',
+				upto: 'hour(s)',
+			},
+			daily: {
+				label: 'per day',
+				upto: 'day(s)',
+			},
+			weekly: {
+				label: 'per week',
+				upto: 'week(s)',
+			},
+			monthly: {
+				label: 'per month',
+				upto: 'month(s)',
+			},
+			yearly: {
+				label: 'per year',
+				upto: 'year(s)',
+			}
 		},
 
-		drawPrice: function (obj, id, value) {
+		drawPrice: function (cid, obj, id, value) {
 			var z, i, data = {};
 
 			obj.html('Price: ');
-			
+		
+			// Value
 			obj.append(data.price = $(document.createElement('input')));
 			data.price.attr('type', 'number');
 			if (value) {
@@ -849,10 +866,25 @@ var bS = (function() {
 			}
 			data.price.change(rFunc(ObjectBuilder.reparse, this, false, id));
 			
+			// Currency
+			if (c[cid] && c[cid].currencies) {
+				obj.append(data.currency = $(document.createElement('select')));
+				for (i in c[cid].currencies) {
+					data.currency.append(z = $(document.createElement('option')));
+					z.val(i);
+					z.html(c[cid].currencies[i]);
+					if (value && value.currency == i) {
+						z.attr('selected' ,true);
+					}
+				}
+			}
+
+			obj.append(' ');
+
 			obj.append(data.per = $(document.createElement('select')));
 			for (i in costs.pricePers) {
 				data.per.append(z = $(document.createElement('option')));
-				z.html(costs.pricePers[i]);
+				z.html(costs.pricePers[i].label);
 				z.val(i);
 				if (value) {
 					if (value.per == i) {
@@ -860,19 +892,59 @@ var bS = (function() {
 					}
 				}
 			}
+
+			obj.append(data.uptoSpan = $(document.createElement('span')));
+
+			costs.drawUpto(obj, id, value, data);
+
 			data.per.change(rFunc(ObjectBuilder.reparse, this, false, id));
-			
+			data.per.change(rFunc(costs.drawUpto, this, false, obj, id));
+
 			obj.data(data);
+		},
+
+		drawUpto: function(obj, id, value, data) {
+			var per, current;
+			
+			if (!data) {
+				data = obj.data();
+			}
+
+			// Get current value if we have one
+			if (!value && data.upto) {
+				current = data.upto.val();
+			}
+
+			data.uptoSpan.html('');
+
+			// Check if we have an interval
+			if ((per = data.per.val()) !== 'oneoff') {
+				data.uptoSpan.append(' up to ');
+				data.uptoSpan.append(data.upto = $(document.createElement('input')));
+				data.upto.attr('type', 'number');
+				if (value) {
+					data.upto.val(value.upto);
+				} else if (current) {
+					data.upto.val(current);
+				}
+				data.uptoSpan.append(' ' + costs.pricePers[per].upto);
+			}
 		},
 
 		parsePrice: function (obj, id) {
 			var data = obj.data();
 			
-			return {
+			var value = {
 				type: 'price',
 				price: data.price.val(),
 				per: data.per.val()
 			};
+
+			if (data.currency) {
+				value.currency = data.currency.val();
+			}
+
+			return value;
 		},
 
 		drawDetail: function (obj, id, value) {
@@ -1133,7 +1205,6 @@ var bS = (function() {
 				},
 				price: {
 					label: 'Price',
-					draw: costs.drawPrice,
 					parse: costs.parsePrice,
 				},
 				detail: {
@@ -1408,10 +1479,14 @@ var bS = (function() {
 	};
 
 	var calendar = {
+		days: ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday',
+				'Friday', 'Saturday'],
+
 		drawMonth: function(obj, events) {
 			var nextEventStart = 0;
 			var event, nextEvent;
 			var e, start, current = new Date().valueOf();
+			var i, z, y;
 
 			// Go through events and get future events
 			for (e in events) {
@@ -1447,12 +1522,15 @@ var bS = (function() {
 
 			month.setDate(1);
 
-			month - month.getDay();
+			month = month - month.getDay();
 
 			// Start printing the calendar
 			// Print the header first
 			obj.append(z = $(document.createElement('div')));
-			//z.append
+			for (i in calendar.days) {
+				z.append(y = $(document.createElement('div')));
+				y.html(calendar.days[i]);
+			}
 		}
 	}
 
@@ -1461,7 +1539,7 @@ var bS = (function() {
 		 * Handles the drawing and actions associated with the costs metabox.
 		 */
 		costs: {
-			init: function(id, url, value) {
+			init: function(id, url, value, currencies) {
 				if (url) {
 					ajaxurl = url;
 				}
@@ -1472,6 +1550,11 @@ var bS = (function() {
 							'pad': $('#' + id), // Is the main div
 							'costs': {}, // Stores each costs elements
 					};
+
+					if (currencies && ((currencies = JSON.parse(currencies)))) {
+						console.log(currencies);
+						c[id].currencies = currencies;
+					}
 
 					var z, y;
 
@@ -1495,6 +1578,10 @@ var bS = (function() {
 					z.attr('name', 'coststimes');
 
 					c[id].pad.append(y = $(document.createElement('div')));
+
+					// Set the draw function for the price
+					costs.elements.part.elements.price.draw = rFunc(costs.drawPrice, this, true, id);
+
 					ObjectBuilder.create(y, costs.elements, {
 							input: z,
 							multiple: true,

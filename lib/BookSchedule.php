@@ -1,6 +1,7 @@
 <?php
 //require_once('utils.php');
 require_once('wp-settings/WPSettings.php');
+require_once('Currency.php');
 
 class BookSchedule {
 	protected static $instance = null;
@@ -16,6 +17,9 @@ class BookSchedule {
 	protected static $cookie = 'bookschedule';
 	protected static $lp;
 	protected static $options;
+	protected static $nonceKey = 'book-schedule';
+	protected static $nonceMetaContext = 'book-schedule-metabox';
+	protected static $noncePrinted = false;
 
 	function __destruct() {
 		if (static::$lp) {
@@ -33,6 +37,12 @@ class BookSchedule {
 		global $wpdb;
 
 		//static::$lp = fopen('bookSchedule.log', 'a');
+		try {
+			$currencies = $this->getCurrenciesArray(true);
+		} catch (CurrencyException $e) {
+			$this->echoError($e->getMessage());
+			$currencies = array();
+		}
 
 		static::$options = array(
 				'title' => __('Book Schedule Options', 'book_schedule'),
@@ -226,6 +236,33 @@ class BookSchedule {
 						'fields' => array(
 							'version' => array(
 								'type' => 'internal',
+							),
+							'baseCurrency' => array(
+								'title' => __('Base currency', 'book_schedule'),
+								'type' => 'select',
+								'values' => $currencies,
+								'check' => array($this, 'setBaseCurrency'),
+								'get' => array($this, 'getBaseCurrency'),
+								'default' => 'USD',
+							),
+							'currencies' => array(
+								'title' => __('Additional currencies', 'book_schedule'),
+								'description' => __('Select the currencies that are to be '
+										. 'used on this site. If none are selected, currencies '
+										. 'will not be able to be selected and everything will '
+										. 'be in the base currency. The base currency will '
+										. 'automatically selected.', 'book_schedule'),
+								'type' => 'select',
+								'values' => $currencies,
+								'multiple' => true,
+								'check' => array($this, 'setCurrencies'),
+								'get' => array($this, 'getCurrencies'),
+							),
+							'conversionPercentage' => array(
+								'title' => __('Additional conversion percentage',
+										'book_schedule'),
+								'type' => 'number',
+								'default' => 2
 							),
 							'haveArchives' => array(
 								'title' => __('Have archives', 'book_schedule'),
@@ -510,6 +547,27 @@ class BookSchedule {
 		wp_enqueue_script('book-schedule', 
 				plugins_url('/js/bookschedule.js', dirname(__FILE__)),
 				array('object-builder'));
+		/*wp_enqueue_script('jquery-ui-multiselect', 
+				plugins_url('/lib/jquery-ui-multiselect/src/jquery.multiselect.min.js', dirname(__FILE__)),
+				array('jquery', 'jquery-ui-core'));
+		wp_enqueue_script('jquery-ui-multiselect-filter', 
+				plugins_url('/lib/jquery-ui-multiselect/src/jquery.multiselect.filter.min.js', dirname(__FILE__)),
+				array('jquery', 'jquery-ui-core', 'jquery-ui-multiselect'));
+		wp_enqueue_style('jquery-ui-multiselect',
+				plugins_url('/lib/jquery-ui-multiselect/jquery.multiselect.css', dirname(__FILE__)));
+		wp_enqueue_style('jquery-ui-multiselect-filter',
+				plugins_url('/lib/jquery-ui-multiselect/jquery.multiselect.filter.css', dirname(__FILE__)));*/
+		wp_enqueue_script('jquery-ui-timepicker', 
+				plugins_url('/lib/jquery-ui-timepicker/src/jquery-ui-timepicker-addon.js', dirname(__FILE__)),
+				array('jquery', 'jquery-ui-core', 'jquery-ui-datepicker', 'jquery-ui-slider'));
+		wp_enqueue_style('jquery-ui-timerpicker',
+				plugins_url('/lib/jquery-ui-timepicker/src/jquery-ui-timepicker-addon.css', dirname(__FILE__)));
+		wp_enqueue_style('ghierarchy-jquery-ui',
+				plugins_url('/css/jquery-ui/jquery-ui.min.css', dirname(__FILE__)));
+		wp_enqueue_style('ghierarchy-jquery-ui-structure',
+				plugins_url('/css/jquery-ui/jquery-ui.structure.min.css', dirname(__FILE__)));
+		wp_enqueue_style('ghierarchy-jquery-ui-theme',
+				plugins_url('/css/jquery-ui/jquery-ui.theme.min.css', dirname(__FILE__)));
 		//wp_enqueue_style( 'dashicons' );
 	}
 
@@ -584,7 +642,8 @@ class BookSchedule {
 	}
 
 	protected function echoError($message) {
-		echo '<div id="message" class="error">' . $message . '</div>';
+		echo '<div id="message" class="error">' . __('Book Schedule Error: ',
+				'book_schedule') . $message . '</div>';
 	}
 
 	protected function checkFunctions() {
@@ -595,6 +654,60 @@ class BookSchedule {
 		}*/
 	}
 
+	function getCurrenciesArray($full = false) {
+		$array = array();
+
+		if ($currencies = Currency::getCurrencies($full)) {
+			foreach ($currencies as $c => &$currency) {
+				$array[$c] = $currency['currencyName'] . ' (' . $c . ')';
+			}
+		}
+
+		asort($array);
+
+		return $array;
+	}
+
+	function getBaseCurrency() {
+		if ($base = Currency::getBase()) {
+			return $base;
+		} else {
+			return null;
+		}
+	}
+
+	function setBaseCurrency($value) {
+		Currency::setBase($value);
+
+		return null;
+	}
+
+	function getCurrencies() {
+		if ($currencies = Currency::getCurrencies($full)) {
+			return array_keys($currencies);
+		} else {
+			return null;
+		}
+	}
+
+	function setCurrencies($value) {
+			system("echo 'setting currencies received " . print_r($value, 1) . "' >> /tmp/currency.log");
+
+		if (is_array($value)) {
+			if (count($value)) {
+				if ($base = Currency::getBase()) {
+					if (!in_array($base, $value)) {
+						array_push($value, $base);
+					}
+				}
+			}
+			system("echo 'setting currencies " . print_r($value, 1) . "' >> /tmp/currency.log");
+			Currency::setSelectedCurrencies($value, false);
+		}
+
+		return null;
+	}
+
 	/**
 	 * Saves the information from the metaboxes when a post is saved
 	 *
@@ -602,13 +715,13 @@ class BookSchedule {
 	 */
 	static function saveMetaboxes($postId) {
 		// Check if our nonce is set.
-		if (!isset($_POST['print_additional_nonce'])) {
+		if (!isset($_POST[static::$nonceKey])) {
 			return;
 		}
 
 		// Verify that the nonce is valid.
-		if (!wp_verify_nonce($_POST['print_additional_nonce'],
-				'book_schdule_print_addtional')) {
+		if (!wp_verify_nonce($_POST[static::$nonceKey],
+				static::$nonceMetaContext)) {
 			return;
 		}
 		// If this is an autosave, our form has not been submitted, so we don't want to do anything.
@@ -1237,6 +1350,14 @@ class BookSchedule {
 		return $data;
 	}
 
+	protected function printMetaNonce() {
+		if (!static::$noncePrinted) {
+			wp_nonce_field( static::$nonceMetaContext, static::$nonceKey);
+
+			static::$noncePrinted = true;
+		}
+	}
+
 	/**
 	 * Prints the additional information metabox in the post edit view.
 	 *
@@ -1244,9 +1365,9 @@ class BookSchedule {
 	 * @param $metabox array The metabox data.
 	 */
 	function printAdditionalMeta($post, $metabox) {
+		$this->printMetaNonce();
+
 		$type = $metabox['args'][0];
-		
-		wp_nonce_field( 'book_schdule_print_addtional', 'print_additional_nonce' );
 
 		foreach ($type['additionalInfoFields'] as $field) {
 			$data = get_post_meta($post->ID, static::$idPre . $field['slug'], true);
@@ -1273,18 +1394,25 @@ class BookSchedule {
 	 * @param $metabox array The metabox data.
 	 */
 	function printCostsMeta($post, $metabox) {
+		$this->printMetaNonce();
+
 		$id = uniqid();
 		// Get costs metadata
 		$data = get_post_meta($post->ID, static::$coststimesMeta, true);
+		$currencies = $this->getCurrenciesArray();
 
-		echo '<div id="' . $id . '"></div>';
+		echo '<div id="' . $id . '" class="bsDetailsMeta"></div>';
 		echo '<script type="text/javascript">'
 				. 'jQuery(function() {bS.costs.init(\'' . $id . '\', \''
 				. admin_url('admin-ajax.php'). '\', \'' . $data
-				. '\');})</script>';
+				. '\'' . ($currencies ? ', \''
+				. str_replace('\'', '\\\'', json_encode($currencies)) . '\'' : '')
+				. ');})</script>';
 	}
 
 	function printLocationDetailsMeta($post, $metabox) {
+		$this->printMetaNonce();
+
 		$id = uniqid();
 		echo '<div id="' . $id . '"></div>';
 		echo '<a class="button" onclick="bS.locations.add(\'' . $id . '\')">'
@@ -1295,6 +1423,8 @@ class BookSchedule {
 	}
 
 	function printItemsMeta($post) {
+		$this->printMetaNonce();
+
 		// Get the metadata
 		if (($data = get_post_meta($post->ID, static::$bookingType, true))) {
 			if (isset($data['items'])) {
@@ -1309,6 +1439,8 @@ class BookSchedule {
 	}
 
 	function printStatusMeta($post) {
+		$this->printMetaNonce();
+
 		// Get the metadata
 		if (($data = get_post_meta($post->ID, static::$bookingType, true))) {
 			// Print type
