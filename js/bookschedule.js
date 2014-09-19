@@ -291,6 +291,47 @@ var bS = (function() {
 		}
 	}
 
+	var timeMeasurements = {
+		mins: {
+			label: 'minutes',
+		},
+		hours: {
+			label: 'hours',
+		},
+		days: {
+			label: 'days',
+		},
+		nights: {
+			label: 'nights',
+		},
+		weeks: {
+			label: 'weeks',
+		},
+		months: {
+			label: 'months',
+		},
+		years: {
+			label: 'years',
+		},
+	};
+
+	function drawTimeMeasurement(obj, value) {
+		var z, y, m;
+		
+		obj.append(z = $(document.createElement('select')));
+
+		for (m in timeMeasurements) {
+			z.append(y = $(document.createElement('option')));
+			y.val(m);
+			y.html(timeMeasurements[m].label);
+			if ((value && value == m) || (!value && m == 'days')) {
+				y.attr('selected', true);
+			}
+		}
+
+		return z;
+	}
+
 	var ajaxurl;
 
 	var locations = {
@@ -353,67 +394,6 @@ var bS = (function() {
 	 * Internal functions for costs
 	 */
 	var costs = {
-		drawLimit: function(obj, id, value) {
-			var z, i, data = {};
-
-			obj.html('<h4>Limit</h4>');
-
-			i = uniqid();
-			obj.append(z = $(document.createElement('label')));
-			z.html('Size: ');
-			z.attr('for', i);
-			obj.append(data.size = $(document.createElement('input')));
-			data.size.attr('type', 'number');
-			data.size.attr('id', i);
-
-			obj.append(' ');
-			i = uniqid();
-			obj.append(data.all = $(document.createElement('input')));
-			data.all.attr('type', 'checkbox');
-			data.all.attr('id', i);
-			obj.append(z = $(document.createElement('label')));
-			z.html(' pay for all');
-			z.attr('for', i);
-	
-			obj.append(' ');
-			i = uniqid();
-			obj.append(z = $(document.createElement('label')));
-			z.html('Number Available: ');
-			z.attr('for', i);
-			obj.append(data.number = $(document.createElement('input')));
-			data.number.attr('type', 'number');
-			data.number.attr('id', i);
-
-			// @todo Help text obj.append('<footer>The size 
-
-			if (value) {
-				data.size.val(value.size);
-				data.number.val(value.number);
-				if (data.all) {
-					data.all.attr('checked', true);
-				}
-			} else {
-				data.size.val('1');
-				data.number.val('1');
-			}
-			data.size.change(rFunc(ObjectBuilder.reparse, this, false, id));
-			data.number.change(rFunc(ObjectBuilder.reparse, this, false, id));
-			data.all.change(rFunc(ObjectBuilder.reparse, this, false, id));
-
-			obj.data(data);
-		},
-
-		parseLimit: function(obj, id) {
-			var data = obj.data();
-
-			return value = {
-				type: 'limit',
-				size: data.size.val(),
-				number: data.number.val(),
-				all: (data.all.attr('checked') ? true : false)
-			};
-		},
-
 		drawLocation: function(obj, id, value) {
 			var z, i, data = {};
 
@@ -970,6 +950,162 @@ var bS = (function() {
 			};
 		},
 
+		drawBookingLimit: function(obj, id, value) {
+			var z, y, i, data = {};
+
+			obj.html('<h4>Booking Limit</h4>');
+
+			i = uniqid();
+			obj.append(y = $(document.createElement('div')));
+			y.append(z = $(document.createElement('label')));
+			z.html('Minimum booking length: ');
+			z.attr('for', i);
+			y.append(data.minLength = $(document.createElement('input')));
+			data.minLength.attr('type', 'number');
+			data.minLength.attr('id', i);
+			data.minLengthUnit = drawTimeMeasurement(y, (value ? value.minLengthUnit : null));
+
+			i = uniqid();
+			obj.append(y = $(document.createElement('div')));
+			y.append(z = $(document.createElement('label')));
+			z.html('Maximum booking length: ');
+			z.attr('for', i);
+			y.append(data.maxLength = $(document.createElement('input')));
+			data.maxLength.attr('type', 'number');
+			data.maxLength.attr('id', i);
+			data.maxLengthUnit = drawTimeMeasurement(y, (value ? value.maxLengthUnit : null));
+
+			i = uniqid();
+			obj.append(y = $(document.createElement('div')));
+			y.append(z = $(document.createElement('label')));
+			z.html('Minimum length ahead can be booked: ');
+			z.attr('for', i);
+			y.append(data.minAhead = $(document.createElement('input')));
+			data.minAhead.attr('type', 'number');
+			data.minAhead.attr('id', i);
+			data.minAheadUnit = drawTimeMeasurement(y, (value ? value.minAheadUnit : null));
+
+			i = uniqid();
+			obj.append(y = $(document.createElement('div')));
+			y.append(z = $(document.createElement('label')));
+			z.html('Maximum length ahead can be booked: ');
+			z.attr('for', i);
+			y.append(data.maxAhead = $(document.createElement('input')));
+			data.maxAhead.attr('type', 'number');
+			data.maxAhead.attr('id', i);
+			data.maxAheadUnit = drawTimeMeasurement(y, (value ? value.minAheadUnit : null));
+
+			i = uniqid();
+			obj.append(y = $(document.createElement('div')));
+			y.append(z = $(document.createElement('label')));
+			z.html('Maximum concurrently running: ');
+			z.attr('for', i);
+			y.append(data.maxConcurrent = $(document.createElement('input')));
+			data.maxConcurrent.attr('type', 'number');
+			data.maxConcurrent.attr('id', i);
+
+			// @todo Help text obj.append('<footer>The size 
+
+			if (value) {
+				data.minLength.val(value.minLength);
+				data.maxLength.val(value.maxLength);
+				data.minAhead.val(value.minAhead);
+				data.maxAhead.val(value.maxAhead);
+				data.maxConcurrent.val(value.maxAhead);
+			}
+
+			data.minLength.change(rFunc(ObjectBuilder.reparse, this, false, id));
+			data.minLengthUnit.change(rFunc(ObjectBuilder.reparse, this, false, id));
+			data.maxLength.change(rFunc(ObjectBuilder.reparse, this, false, id));
+			data.maxLengthUnit.change(rFunc(ObjectBuilder.reparse, this, false, id));
+			data.minAhead.change(rFunc(ObjectBuilder.reparse, this, false, id));
+			data.minAheadUnit.change(rFunc(ObjectBuilder.reparse, this, false, id));
+			data.maxAhead.change(rFunc(ObjectBuilder.reparse, this, false, id));
+			data.maxAheadUnit.change(rFunc(ObjectBuilder.reparse, this, false, id));
+			data.maxConcurrent.change(rFunc(ObjectBuilder.reparse, this, false, id));
+
+			obj.data(data);
+		},
+
+		parseBookingLimit: function(obj, id) {
+			var data = obj.data();
+
+			return value = {
+				type: 'bookingLimit',
+				minLength: data.minLength.val(),
+				minLengthUnit: data.minLengthUnit.val(),
+				maxLength: data.maxLength.val(),
+				maxLengthUnit: data.maxLengthUnit.val(),
+				minAhead: data.minAhead.val(),
+				minAheadUnit: data.minAheadUnit.val(),
+				maxAhead: data.maxAhead.val(),
+				maxAheadUnit: data.maxAheadUnit.val(),
+				maxConcurrent: data.maxConcurrent.val(),
+			};
+		},
+
+		drawLimit: function(obj, id, value) {
+			var z, i, data = {};
+
+			obj.html('<h4>Limit</h4>');
+
+			i = uniqid();
+			obj.append(z = $(document.createElement('label')));
+			z.html('Size: ');
+			z.attr('for', i);
+			obj.append(data.size = $(document.createElement('input')));
+			data.size.attr('type', 'number');
+			data.size.attr('id', i);
+
+			obj.append(' ');
+			i = uniqid();
+			obj.append(data.all = $(document.createElement('input')));
+			data.all.attr('type', 'checkbox');
+			data.all.attr('id', i);
+			obj.append(z = $(document.createElement('label')));
+			z.html(' pay for all');
+			z.attr('for', i);
+	
+			obj.append(' ');
+			i = uniqid();
+			obj.append(z = $(document.createElement('label')));
+			z.html('Number Available: ');
+			z.attr('for', i);
+			obj.append(data.number = $(document.createElement('input')));
+			data.number.attr('type', 'number');
+			data.number.attr('id', i);
+
+			// @todo Help text obj.append('<footer>The size 
+
+			if (value) {
+				data.size.val(value.size);
+				data.number.val(value.number);
+				if (data.all) {
+					data.all.attr('checked', true);
+				}
+			} else {
+				data.size.val('1');
+				data.number.val('1');
+			}
+			data.size.change(rFunc(ObjectBuilder.reparse, this, false, id));
+			data.number.change(rFunc(ObjectBuilder.reparse, this, false, id));
+			data.all.change(rFunc(ObjectBuilder.reparse, this, false, id));
+
+			obj.data(data);
+		},
+
+		parseLimit: function(obj, id) {
+			var data = obj.data();
+
+			return value = {
+				type: 'limit',
+				size: data.size.val(),
+				number: data.number.val(),
+				all: (data.all.attr('checked') ? true : false)
+			};
+		},
+
+
 		drawLink: function (obj, id, value) {
 			/*var z, y, data = {};
 			
@@ -993,13 +1129,11 @@ var bS = (function() {
 		},
 
 		parseLink: function (obj, id) {
-			/*var data = obj.data();
+			var data = obj.data();
 			
 			return {
 				type: 'time',
-				start: data.start.val(),
-				end: data.end.val()
-			};*/
+			};
 		},
 
 
@@ -1218,9 +1352,14 @@ var bS = (function() {
 					parse: costs.parseLocation,
 				},
 				limit: {
-					label: 'Limit',
+					label: 'Size Limit',
 					draw: costs.drawLimit,
 					parse: costs.parseLimit,
+				},
+				bookingLimit: {
+					label: 'Booking Limit',
+					draw: costs.drawBookingLimit,
+					parse: costs.parseBookingLimit
 				},
 				link: {
 					label: 'Linked booking',
@@ -1585,6 +1724,7 @@ var bS = (function() {
 					ObjectBuilder.create(y, costs.elements, {
 							input: z,
 							multiple: true,
+							types: ['part-option', 'part-date', 'part-userTime', 'part-repeat', 'part-price', 'part-detail', 'part-location', 'part-limit', 'part-bookingLimit', 'part-link', 'part-exclusion'],
 							}, value);
 				}
 			},
