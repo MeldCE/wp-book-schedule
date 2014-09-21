@@ -20,6 +20,7 @@ class BookSchedule {
 	protected static $nonceKey = 'book-schedule';
 	protected static $nonceMetaContext = 'book-schedule-metabox';
 	protected static $noncePrinted = false;
+	protected static $itemDetails = array();
 
 	function __destruct() {
 		if (static::$lp) {
@@ -708,6 +709,51 @@ class BookSchedule {
 		return null;
 	}
 
+	protected function &getItemDetails($postId) {
+		if (!isset(static::$itemDetails[$postId])) {
+			if (($data = get_post_meta($postId, static::$coststimesMeta))) {
+				static::$itemDetails[$postId] = $data;
+			}
+		}
+
+		return static::$itemDetails[$postId];
+	}
+
+	protected function extractItemDetail($postId, $detail, &$data = null,
+			&$details = null) {
+		if (!is_null($data) || ($data = $this->getItemDetails($postId))) {
+			if (!is_null($details)) {
+				$details = array();
+			}
+			if (!is_array($detail)) {
+				$detail = array($detail);
+			}
+
+			foreach ($detail as $d) {
+				if (isset($data[$d])) {
+					$details[$d] = $data[$d];
+				}
+			}
+
+			if (isset($data['option'])) {
+				$details['option'] = array();
+
+				foreach ($data['option'] as &$option) {
+					$oDetails = array(
+						'label' => $option['label']
+					);
+					$this->extractItemDetail($postId, $detail, $option['option'], $oDetails);
+
+					array_push($details['option'], $oDetails);
+				}
+			}
+
+			return $details;
+		}
+
+		return null;
+	}
+
 	/**
 	 * Saves the information from the metaboxes when a post is saved
 	 *
@@ -1106,6 +1152,16 @@ class BookSchedule {
 		}
 		
 		return false;
+	}
+
+	static function getPriceDetails() {
+		if (get_the_ID()) {
+			$me = static::instance();
+
+			return $me->extractItemDetail(get_the_ID(), 'price');
+		}
+		
+		return null;
 	}
 
 	/**
