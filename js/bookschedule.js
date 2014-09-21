@@ -38,14 +38,15 @@ var bS = (function() {
 		// Shift to remove include
 		a.shift();
 		return function () {
+			var args = a;
 			/**
 			 * Append the arguments from the function call to the arguments
 			 * given when rFunc was called.
 			 */
 			if (include) {
-				a = a.concat(Array.prototype.slice.call(arguments));
+				args = a.concat(Array.prototype.slice.call(arguments));
 			}
-			func.apply(context, a);
+			func.apply(context, args);
 		};
 	}
 
@@ -432,6 +433,7 @@ var bS = (function() {
 			obj.append(data.label = $(document.createElement('input')));
 			data.label.attr('id', i);
 			if (value) {
+				console.log('drawn option ' + value.label + ' (' + value.option.length + ' elements)');
 				data.label.val(value.label);
 			}
 			data.label.change(rFunc(ObjectBuilder.reparse, this, false, id));
@@ -1106,7 +1108,7 @@ var bS = (function() {
 		},
 
 
-		drawLink: function (obj, id, value) {
+		drawLink: function(obj, id, value) {
 			/*var z, y, data = {};
 			
 			obj.html('Time: ');
@@ -1128,7 +1130,7 @@ var bS = (function() {
 			obj.data(data);*/
 		},
 
-		parseLink: function (obj, id) {
+		parseLink: function(obj, id) {
 			var data = obj.data();
 			
 			return {
@@ -1136,6 +1138,59 @@ var bS = (function() {
 			};
 		},
 
+
+		parsePad: function(id, pad) {
+			var obj = {};
+
+			ObjectBuilder.iterateObjects(pad, function(el, type, element) {
+				// Check type of element exists
+				if (costs.elements[type] && costs.elements[type].elements[element]) {
+					switch (element) {
+						/*case 'date':
+						case 'days':
+						case 'time':
+						case 'userTime':
+						case 'repeat':
+						case 'price':
+						case 'detail':
+						case 'location':
+						case 'limit':
+						case 'bookingLimit':
+						case 'link':
+						case 'exclusion':
+						case 'option':*/
+						default:
+							if (!(obj[element])) {
+								obj[element] = [];
+							}
+
+							obj[element].push(costs.elements[type].elements[element].parse(el, id));
+
+							break;
+					}
+				}
+			});
+
+			return obj;
+		},
+
+		populatePad: function(id, pad, value) {
+			console.log('custom populate');
+			if (value) {
+				console.log(value);
+				var t, e, i;
+				for (t in costs.elements) {
+					for (e in costs.elements[t].elements) {
+						// See if there are any prices
+						if (value[e]) {
+							for (i in value[e]) {
+								ObjectBuilder.createElement(id, pad, t, e, value[e][i]);
+							}
+						}
+					}
+				}
+			}
+		},
 
 		/**
 		 * Creates a new cost option div
@@ -1307,10 +1362,24 @@ var bS = (function() {
 	costs.elements = {
 		part: {
 			elements: {
+				price: {
+					label: 'Price',
+					parse: costs.parsePrice,
+				},
+				location: {
+					label: 'Location',
+					draw: costs.drawLocation,
+					parse: costs.parseLocation,
+				},
 				option: {
 					label: 'Option',
 					draw: costs.drawOption,
 					parse: costs.parseOption,
+				},
+				repeat: {
+					label: 'Repeat',
+					draw: costs.drawRepeat,
+					parse: costs.parseRepeat,
 				},
 				date: {
 					label: 'Specific Date(s)',
@@ -1332,24 +1401,10 @@ var bS = (function() {
 					draw: costs.drawUserTime,
 					parse: costs.parseUserTime,
 				},
-				repeat: {
-					label: 'Repeat',
-					draw: costs.drawRepeat,
-					parse: costs.parseRepeat,
-				},
-				price: {
-					label: 'Price',
-					parse: costs.parsePrice,
-				},
 				detail: {
 					label: 'Detail',
 					draw: costs.drawDetail,
 					parse: costs.parseDetail,
-				},
-				location: {
-					label: 'Location',
-					draw: costs.drawLocation,
-					parse: costs.parseLocation,
 				},
 				limit: {
 					label: 'Size Limit',
@@ -1679,6 +1734,8 @@ var bS = (function() {
 		 */
 		costs: {
 			init: function(id, url, value, currencies) {
+				console.log('Received value of ' + value);
+				
 				if (url) {
 					ajaxurl = url;
 				}
@@ -1721,8 +1778,18 @@ var bS = (function() {
 					// Set the draw function for the price
 					costs.elements.part.elements.price.draw = rFunc(costs.drawPrice, this, true, id);
 
+					if (value) {
+						try {
+							value = JSON.parse(value);
+						} catch(e) {
+							value = null;
+						}
+					}
+
 					ObjectBuilder.create(y, costs.elements, {
 							input: z,
+							parse: costs.parsePad,
+							populate: costs.populatePad,
 							multiple: true,
 							types: ['part-option', 'part-date', 'part-userTime', 'part-repeat', 'part-price', 'part-detail', 'part-location', 'part-limit', 'part-bookingLimit', 'part-link', 'part-exclusion'],
 							}, value);
