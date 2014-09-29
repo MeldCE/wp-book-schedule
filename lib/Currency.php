@@ -131,12 +131,15 @@ if (!class_exists('Currency')) {
 		}
 
 		protected function updateRates() {
+			//echo "Updating rates\n";
+
 			if (!isset($this->data['base'])
 					|| !isset($this->data['selectedCurrencies'])) {
 				if (isset($me->data['rates'])) {
 					unset($me->data['rates']);
 					unset($me->data['ratesDate']);
 				}
+				//echo "don't have selected currencies or base currency\n";
 				return false;
 			}
 
@@ -145,28 +148,42 @@ if (!class_exists('Currency')) {
 			$base =& $this->data['base'];
 
 			foreach ($this->data['selectedCurrencies'] as $c => &$currency) {
-				array_push($query, $base . '_' . $c);
+				if ($base != $c) {
+					array_push($query, $base . '_' . $c);
+				}
 			}
 
 			$query = 'convert?q=' . join(',', $query);
 
+			//echo "query is $query\n";
+			//echo "Results are ";
+			//print_r($this->curl($query));
+
 			if (($result = $this->curl($query)) && isset($result['results'])) {
-				$rates = array();
+				//echo "Success\n";
+
+				$this->data['rates'] = array(
+					$base => 1
+				);
 
 				foreach ($result['results'] as $c => &$rate) {
-					$rates[$rate['to']] = $rate['val'];
+					$this->data['rates'][$rate['to']] = $rate['val'];
 				}
-				
-				$me->data['rates'] = $rates;
-				$me->data['ratesDate'] = time();
+			
+				//echo "Storing ";
+				//print_r($this->rates);
 
+				$this->data['ratesDate'] = time();
+
+				//echo "Data is now ";
+				//print_r($this->data);
 				return true;
 			}
 
 			return false;
 		}
 
-		static function getRates($base = null) {
+		static function getRates($base = null, $currency = null) {
 			if (!($me = static::me()) || is_null($me->data)) {
 				return null;
 			}
@@ -179,12 +196,16 @@ if (!class_exists('Currency')) {
 			if (!isset($me->data['rates'])
 					|| ($me->data['ratesDate'] + $me->data['ratesUpdate']) < time()) {
 				if (!$me->updateRates()) {
+					//echo "Couldn't get rates\n";
 					return false;
 				}
 			}
 
+			//echo "Rates are: ";
+			//print_r($me->data['rates']);
+
 			if (is_null($base) || $me->data['base'] === $base) {
-				return $me->data['rates'];
+				$rates = $me->data['rates'];
 			} else {
 				// Error if not a valid base rate
 				if (!isset($me->data['rates'][$base])) {
@@ -197,9 +218,47 @@ if (!class_exists('Currency')) {
 				foreach ($me->data['rates'] as $c => $rate) {
 					$rates[$c] = $rate * $baseRate;
 				}
-
-				return $rates;
 			}
+
+			//echo "Made $base based rates ";
+			//print_r($rates);
+
+			if ($currency) {
+				//echo "Returning only rate for $currency\n";
+				//print_r($me->data['selectedCurrencies']);
+				if (isset($me->data['selectedCurrencies'][$currency])) {
+					return $rates[$currency];
+				} else {
+					//echo "$currency not in selectedCurrencies\n";
+					return false;
+				}
+			}
+			
+			return $rates;
+		}
+
+		static function isACurrency($currency) {
+			if (!($me = static::me()) || is_null($me->data)) {
+				return null;
+			}
+
+			if (!isset($me->data['currencies'])) {
+				return false;
+			}
+
+			return isset($me->data['currencies'][$currency]);
+		}
+
+		static function isASelectedCurrency($currency) {
+			if (!($me = static::me()) || is_null($me->data)) {
+				return null;
+			}
+
+			if (!isset($me->data['selectedCurrencies'])) {
+				return false;
+			}
+
+			return isset($me->data['selectedCurrencies'][$currency]);
 		}
 
 		static function setBase($base) {
@@ -226,6 +285,41 @@ if (!class_exists('Currency')) {
 			}
 
 			return false;
+		}
+
+		static function convert($value, $currentCurrency, $currency = null) {
+			if (!($me = static::me()) || is_null($me->data)) {
+				//echo "Can't initialise\n";
+				return null;
+			}
+
+			//print_r($me->data);
+
+			if (!isset($me->data['selectedCurrencies'])) {
+				return false;
+			}
+
+			if (is_null($currency)) {
+				if (isset($me->data['base'])) {
+					$currency = $me->data['base'];
+				} else {
+					return $value;
+				}
+			}
+
+			//echo "Converting $value $currentCurrency to $currency\n";
+
+			if ($currentCurrency == $currency) {
+				return $value;
+			}
+	
+			if (!($rate = $me->getRates($currency, $currentCurrency))) {
+				return false;
+			}
+			
+			//echo "Converting $value $currentCurrency to $currency using rate $rate\n";
+
+			return round($value / $rate, 2);
 		}
 
 		static function setUpdateRate($rate) {

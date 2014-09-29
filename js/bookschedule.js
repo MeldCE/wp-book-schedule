@@ -293,44 +293,58 @@ var bS = (function() {
 	}
 
 	var timeMeasurements = {
-		mins: {
-			label: 'minutes',
+		M: {
+			per: 'per minute',
+			unit: 'minute(s)',
 		},
-		hours: {
-			label: 'hours',
+		H: {
+			per: 'per hour',
+			unit: 'hour(s)',
 		},
-		days: {
-			label: 'days',
+		d: {
+			per: 'per day',
+			unit: 'day(s)',
 		},
-		nights: {
-			label: 'nights',
+		n: {
+			per: 'per night',
+			unit: 'night(s)',
 		},
-		weeks: {
-			label: 'weeks',
+		w: {
+			per: 'per week',
+			unit: 'week(s)',
 		},
-		months: {
-			label: 'months',
+		m: {
+			per: 'per month',
+			unit: 'month(s)',
 		},
-		years: {
-			label: 'years',
+		y: {
+			per: 'per year',
+			unit: 'year(s)',
 		},
 	};
 
-	function drawTimeMeasurement(obj, value) {
+	function drawTimeMeasurement(obj, value, type, allowNone) {
 		var z, y, m;
-		
-		obj.append(z = $(document.createElement('select')));
 
-		for (m in timeMeasurements) {
-			z.append(y = $(document.createElement('option')));
-			y.val(m);
-			y.html(timeMeasurements[m].label);
-			if ((value && value == m) || (!value && m == 'days')) {
-				y.attr('selected', true);
+		if (type == 'per' || type == 'unit') {
+			obj.append(z = $(document.createElement('select')));
+
+			if (allowNone) {
+				z.append(y = $(document.createElement('option')));
 			}
-		}
 
-		return z;
+
+			for (m in timeMeasurements) {
+				z.append(y = $(document.createElement('option')));
+				y.val(m);
+				y.html(timeMeasurements[m][type]);
+				if ((value && value == m) || (!value && m == 'days')) {
+					y.attr('selected', true);
+				}
+			}
+
+			return z;
+		}
 	}
 
 	var ajaxurl;
@@ -503,7 +517,7 @@ var bS = (function() {
 
 			data.pad = ObjectBuilder.createPad(id, obj, {
 				multiple: true,
-				types: ['part-time', 'part-detail']
+				types: ['part-time', 'part-detail', 'part-days']
 			}, (value ? value.details : null));
 
 			obj.data(data);
@@ -514,7 +528,7 @@ var bS = (function() {
 
 			return value = {
 				type: 'specificDate',
-				label: data.date.val(),
+				date: data.date.val(),
 				details: ObjectBuilder.parsePadObject(id, data.pad)
 			};
 		},
@@ -809,32 +823,6 @@ var bS = (function() {
 			return parsed;
 		},
 	
-		pricePers: {
-			oneoff: {
-				label: ''
-			},
-			hourly: {
-				label: 'per hour',
-				upto: 'hour(s)',
-			},
-			daily: {
-				label: 'per day',
-				upto: 'day(s)',
-			},
-			weekly: {
-				label: 'per week',
-				upto: 'week(s)',
-			},
-			monthly: {
-				label: 'per month',
-				upto: 'month(s)',
-			},
-			yearly: {
-				label: 'per year',
-				upto: 'year(s)',
-			}
-		},
-
 		drawPrice: function (cid, obj, id, value) {
 			var z, i, data = {};
 
@@ -863,18 +851,8 @@ var bS = (function() {
 
 			obj.append(' ');
 
-			obj.append(data.per = $(document.createElement('select')));
-			for (i in costs.pricePers) {
-				data.per.append(z = $(document.createElement('option')));
-				z.html(costs.pricePers[i].label);
-				z.val(i);
-				if (value) {
-					if (value.per == i) {
-						z.attr('selected', true);
-					}
-				}
-			}
-
+			
+			data.per = drawTimeMeasurement(obj, (value ? value.per : null), 'per', true);
 			obj.append(data.uptoSpan = $(document.createElement('span')));
 
 			costs.drawUpto(obj, id, value, data);
@@ -886,7 +864,7 @@ var bS = (function() {
 		},
 
 		drawUpto: function(obj, id, value, data) {
-			var per, current;
+			var per, current, z;
 			
 			if (!data) {
 				data = obj.data();
@@ -898,18 +876,35 @@ var bS = (function() {
 			}
 
 			data.uptoSpan.html('');
+			
+			// up to input
+			data.uptoSpan.append(' up to ');
+			data.uptoSpan.append(data.upto = $(document.createElement('input')));
+			data.upto.attr('type', 'number');
+			if (value) {
+				data.upto.val(value.upto);
+			} else if (current) {
+				data.upto.val(current);
+			}
 
 			// Check if we have an interval
-			if ((per = data.per.val()) !== 'oneoff') {
-				data.uptoSpan.append(' up to ');
-				data.uptoSpan.append(data.upto = $(document.createElement('input')));
-				data.upto.attr('type', 'number');
-				if (value) {
-					data.upto.val(value.upto);
-				} else if (current) {
-					data.upto.val(current);
+			if ((per = data.per.val())) {
+				data.uptoSpan.append(' ' + timeMeasurements[per].unit);
+
+				data.uptoSpan.append(' ');
+				var eid = uniqid();
+				data.uptoSpan.append(data.step = $(document.createElement('input')));
+				data.step.attr('type', 'checkbox');
+				data.step.attr('id', eid);
+				if (value && value.step) {
+					data.step.attr('checked', true);
 				}
-				data.uptoSpan.append(' ' + costs.pricePers[per].upto);
+				data.uptoSpan.append(z = $(document.createElement('label')));
+				z.html(' pricing step');
+				z.attr('for', eid);
+				data.uptoUnit = data.per;
+			} else {
+				data.uptoUnit = drawTimeMeasurement(data.uptoSpan, (value ? value.uptoUnit : null), 'unit');
 			}
 		},
 
@@ -919,11 +914,22 @@ var bS = (function() {
 			var value = {
 				type: 'price',
 				price: data.price.val(),
-				per: data.per.val()
+				per: data.per.val(),
+				upto: data.upto.val()
 			};
 
 			if (data.currency) {
 				value.currency = data.currency.val();
+			}
+
+			if (data.step) {
+				value.step = (data.step.attr('checked') ? true : false);
+			}
+
+			if (data.uptoUnit) {
+				value.uptoUnit = data.uptoUnit.val();
+			} else {
+				value.uptoUnit = value.per;
 			}
 
 			return value;
@@ -932,7 +938,7 @@ var bS = (function() {
 		drawDetail: function (obj, id, value) {
 			var z, data = {};
 
-			obj.html('Details:'),
+			obj.html('<h4>Details</h4>'),
 			
 			obj.append(data.input = $(document.createElement('textarea')));
 			if (value) {
@@ -945,7 +951,8 @@ var bS = (function() {
 
 		parseDetail: function (obj, id) {
 			var data = obj.data();
-			
+		
+			/// @todo Look at changing to just the value rather than an array
 			return {
 				type: 'detail',
 				detail: data.input.val()
@@ -965,7 +972,7 @@ var bS = (function() {
 			y.append(data.minLength = $(document.createElement('input')));
 			data.minLength.attr('type', 'number');
 			data.minLength.attr('id', i);
-			data.minLengthUnit = drawTimeMeasurement(y, (value ? value.minLengthUnit : null));
+			data.minLengthUnit = drawTimeMeasurement(y, (value ? value.minLengthUnit : null), 'unit');
 
 			i = uniqid();
 			obj.append(y = $(document.createElement('div')));
@@ -975,7 +982,7 @@ var bS = (function() {
 			y.append(data.maxLength = $(document.createElement('input')));
 			data.maxLength.attr('type', 'number');
 			data.maxLength.attr('id', i);
-			data.maxLengthUnit = drawTimeMeasurement(y, (value ? value.maxLengthUnit : null));
+			data.maxLengthUnit = drawTimeMeasurement(y, (value ? value.maxLengthUnit : null), 'unit');
 
 			i = uniqid();
 			obj.append(y = $(document.createElement('div')));
@@ -985,7 +992,7 @@ var bS = (function() {
 			y.append(data.minAhead = $(document.createElement('input')));
 			data.minAhead.attr('type', 'number');
 			data.minAhead.attr('id', i);
-			data.minAheadUnit = drawTimeMeasurement(y, (value ? value.minAheadUnit : null));
+			data.minAheadUnit = drawTimeMeasurement(y, (value ? value.minAheadUnit : null), 'unit');
 
 			i = uniqid();
 			obj.append(y = $(document.createElement('div')));
@@ -995,16 +1002,7 @@ var bS = (function() {
 			y.append(data.maxAhead = $(document.createElement('input')));
 			data.maxAhead.attr('type', 'number');
 			data.maxAhead.attr('id', i);
-			data.maxAheadUnit = drawTimeMeasurement(y, (value ? value.minAheadUnit : null));
-
-			i = uniqid();
-			obj.append(y = $(document.createElement('div')));
-			y.append(z = $(document.createElement('label')));
-			z.html('Maximum concurrently running: ');
-			z.attr('for', i);
-			y.append(data.maxConcurrent = $(document.createElement('input')));
-			data.maxConcurrent.attr('type', 'number');
-			data.maxConcurrent.attr('id', i);
+			data.maxAheadUnit = drawTimeMeasurement(y, (value ? value.minAheadUnit : null), 'unit');
 
 			// @todo Help text obj.append('<footer>The size 
 
@@ -1013,7 +1011,6 @@ var bS = (function() {
 				data.maxLength.val(value.maxLength);
 				data.minAhead.val(value.minAhead);
 				data.maxAhead.val(value.maxAhead);
-				data.maxConcurrent.val(value.maxAhead);
 			}
 
 			data.minLength.change(rFunc(ObjectBuilder.reparse, this, false, id));
@@ -1024,7 +1021,6 @@ var bS = (function() {
 			data.minAheadUnit.change(rFunc(ObjectBuilder.reparse, this, false, id));
 			data.maxAhead.change(rFunc(ObjectBuilder.reparse, this, false, id));
 			data.maxAheadUnit.change(rFunc(ObjectBuilder.reparse, this, false, id));
-			data.maxConcurrent.change(rFunc(ObjectBuilder.reparse, this, false, id));
 
 			obj.data(data);
 		},
@@ -1042,7 +1038,6 @@ var bS = (function() {
 				minAheadUnit: data.minAheadUnit.val(),
 				maxAhead: data.maxAhead.val(),
 				maxAheadUnit: data.maxAheadUnit.val(),
-				maxConcurrent: data.maxConcurrent.val(),
 			};
 		},
 
@@ -1077,6 +1072,15 @@ var bS = (function() {
 			data.number.attr('type', 'number');
 			data.number.attr('id', i);
 
+			i = uniqid();
+			obj.append(y = $(document.createElement('div')));
+			y.append(z = $(document.createElement('label')));
+			z.html('Maximum concurrently running: ');
+			z.attr('for', i);
+			y.append(data.maxConcurrent = $(document.createElement('input')));
+			data.maxConcurrent.attr('type', 'number');
+			data.maxConcurrent.attr('id', i);
+
 			// @todo Help text obj.append('<footer>The size 
 
 			if (value) {
@@ -1085,6 +1089,7 @@ var bS = (function() {
 				if (data.all) {
 					data.all.attr('checked', true);
 				}
+				data.maxConcurrent.val(value.maxAhead);
 			} else {
 				data.size.val('1');
 				data.number.val('1');
@@ -1092,6 +1097,7 @@ var bS = (function() {
 			data.size.change(rFunc(ObjectBuilder.reparse, this, false, id));
 			data.number.change(rFunc(ObjectBuilder.reparse, this, false, id));
 			data.all.change(rFunc(ObjectBuilder.reparse, this, false, id));
+			data.maxConcurrent.change(rFunc(ObjectBuilder.reparse, this, false, id));
 
 			obj.data(data);
 		},
@@ -1103,6 +1109,7 @@ var bS = (function() {
 				type: 'limit',
 				size: data.size.val(),
 				number: data.number.val(),
+				maxConcurrent: data.maxConcurrent.val(),
 				all: (data.all.attr('checked') ? true : false)
 			};
 		},
@@ -1145,26 +1152,54 @@ var bS = (function() {
 			ObjectBuilder.iterateObjects(pad, function(el, type, element) {
 				// Check type of element exists
 				if (costs.elements[type] && costs.elements[type].elements[element]) {
-					switch (element) {
-						/*case 'date':
-						case 'days':
-						case 'time':
-						case 'userTime':
-						case 'repeat':
-						case 'price':
-						case 'detail':
-						case 'location':
-						case 'limit':
-						case 'bookingLimit':
-						case 'link':
-						case 'exclusion':
-						case 'option':*/
-						default:
-							if (!(obj[element])) {
-								obj[element] = [];
-							}
+					switch (type) {
+						case 'part':
+							switch (element) {
+								case 'detail':
+								case 'repeat':
+								case 'bookingLimit': /// Should only be one @todo
+								 obj[element] = costs.elements[type].elements[element].parse(el, id);
+									break;
+								case 'price':
+									var price = costs.elements[type].elements['price'].parse(el, id);
+									if (!obj.price) {
+										obj.price = {};
+									}
+									if (!price.per) { // Base cost
+										if (!obj.price.base) {
+											obj.price.base = [];
+										}
+										obj.price.base.push(price);
+									} else {
+										if (!obj.price.pers) {
+											obj.price.pers = {};
+										}
+										if (!obj.price.pers[price.per]) {
+											obj.price.pers[price.per] = [];
+										}
+										obj.price.pers[price.per].push(price);
+									}
+									break;
+							/*case 'date':
+								case 'days':
+								case 'time':
+								case 'userTime':
+								case 'repeat':
+								case 'detail':
+								case 'location':
+								case 'limit':
+								case 'link':
+								case 'exclusion':
+								case 'option':*/
+								default:
+									if (!(obj[element])) {
+										obj[element] = [];
+									}
 
-							obj[element].push(costs.elements[type].elements[element].parse(el, id));
+									obj[element].push(costs.elements[type].elements[element].parse(el, id));
+
+									break;
+							}
 
 							break;
 					}
@@ -1181,10 +1216,32 @@ var bS = (function() {
 				var t, e, i;
 				for (t in costs.elements) {
 					for (e in costs.elements[t].elements) {
-						// See if there are any prices
 						if (value[e]) {
-							for (i in value[e]) {
-								ObjectBuilder.createElement(id, pad, t, e, value[e][i]);
+							switch (e) {
+								case 'price':
+									if (value[e].base) {
+										for (i in value[e].base) {
+											ObjectBuilder.createElement(id, pad, t, e, value[e].base[i]);
+										}
+									}
+									if (value[e].pers) {
+										for (i in value[e].pers) { // Separated into per values
+											for (j in value[e].pers[i]) {
+												ObjectBuilder.createElement(id, pad, t, e, value[e].pers[i][j]);
+											}
+										}
+									}
+									break;
+								case 'bookingLimit': /// Should only be one @todo
+								case 'detail':
+								case 'repeat':
+									ObjectBuilder.createElement(id, pad, t, e, value[e]);
+									break;
+								default:
+									for (i in value[e]) {
+										ObjectBuilder.createElement(id, pad, t, e, value[e][i]);
+									}
+									break;
 							}
 						}
 					}
@@ -1382,7 +1439,7 @@ var bS = (function() {
 					parse: costs.parseRepeat,
 				},
 				date: {
-					label: 'Specific Date(s)',
+					label: 'Specific Date',
 					draw: costs.drawSpecificDate,
 					parse: costs.parseSpecificDate
 				},
@@ -1876,19 +1933,19 @@ var bS = (function() {
 					var w,x,y,z;
 					b['bookings'].append((b['draftDiv'] = $(document.createElement('div'))));
 					b['draftDiv'].addClass('currentBookings');
-
-					b['data']['booking']['submittedDiv'] = createLabelledFrame(b['bookings'], 'Show previous bookings', {
-						'class': 'postBookings',
-						'hideable': true,
-						'hide': true,
-						'toggleLabel': 'previous bookings',
-					});
 					
-					b['data']['inquiry']['submittedDiv'] = createLabelledFrame(b['bookings'], 'Show previous inquiries', {
+					b['data']['inquiry']['submittedDiv'] = createLabelledFrame(b['bookings'], 'Show inquiries', {
 						'class': 'postBookings',
 						'hideable': true,
 						'hide': true,
 						'toggleLabel': 'previous inquiries',
+					});
+
+					b['data']['booking']['submittedDiv'] = createLabelledFrame(b['bookings'], 'Show bookings', {
+						'class': 'postBookings',
+						'hideable': true,
+						'hide': true,
+						'toggleLabel': 'previous bookings',
 					});
 
 					// Build data and divs

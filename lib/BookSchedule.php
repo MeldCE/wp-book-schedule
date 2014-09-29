@@ -21,6 +21,9 @@ class BookSchedule {
 	protected static $nonceMetaContext = 'book-schedule-metabox';
 	protected static $noncePrinted = false;
 	protected static $itemDetails = array();
+	protected static $currencyCookie = 'bs_currency';
+	protected $currentCurrency = null;
+	protected static $perDays;
 
 	function __destruct() {
 		if (static::$lp) {
@@ -289,6 +292,62 @@ class BookSchedule {
 		);
 
 		static::$settings = new WPSettings(static::$options);
+
+		static::$perDays = array(
+			'M' => array(
+				'per' => 'per minute',
+				'unit' => 'minute(s)',
+				'sUnit' => 'minute(s)',
+				'pUnit' => 'minute(s)',
+				'l' => 0.0007
+			),
+			'H' => array(
+				'per' => 'per hour',
+				'unit' => 'hour(s)',
+				'sUnit' => 'hour',
+				'pUnit' => 'hours',
+				'l' => 0.4
+			),
+			'd' => array(
+				'per' => 'per day',
+				'unit' => 'day(s)',
+				'sUnit' => 'day',
+				'pUnit' => 'days',
+				'l' => 1
+			),
+			'n' => array(
+				'per' => 'per night',
+				'unit' => 'night(s)',
+				'sUnit' => 'night',
+				'pUnit' => 'nights',
+				'l' => 1
+			),
+			'w' => array(
+				'per' => '',
+				'unit' => 'week(s)',
+				'sUnit' => 'week',
+				'pUnit' => 'weeks',
+				'l' => 7
+			),
+			'm' => array(
+				'per' => 'per month',
+				'sUnit' => 'month',
+				'pUnit' => 'months',
+				'l' => 30
+			),
+			'y' => array(
+				'per' => 'per year',
+				'unit' => 'year(s)',
+				'sUnit' => 'year',
+				'pUnit' => 'years',
+				'l' => 365
+			),
+		);
+
+	}
+
+	protected function getUnit($unit, $length) {
+		return ($length > 1 ? static::$perDays[$unit]['pUnit'] : static::$perDays[$unit]['sUnit']);
 	}
 
 	protected static function &instance() {
@@ -709,49 +768,8 @@ class BookSchedule {
 		return null;
 	}
 
-	protected function &getItemDetails($postId) {
-		if (!isset(static::$itemDetails[$postId])) {
-			if (($data = get_post_meta($postId, static::$coststimesMeta))) {
-				static::$itemDetails[$postId] = $data;
-			}
-		}
-
-		return static::$itemDetails[$postId];
-	}
-
-	protected function extractItemDetail($postId, $detail, &$data = null,
-			&$details = null) {
-		if (!is_null($data) || ($data = $this->getItemDetails($postId))) {
-			if (!is_null($details)) {
-				$details = array();
-			}
-			if (!is_array($detail)) {
-				$detail = array($detail);
-			}
-
-			foreach ($detail as $d) {
-				if (isset($data[$d])) {
-					$details[$d] = $data[$d];
-				}
-			}
-
-			if (isset($data['option'])) {
-				$details['option'] = array();
-
-				foreach ($data['option'] as &$option) {
-					$oDetails = array(
-						'label' => $option['label']
-					);
-					$this->extractItemDetail($postId, $detail, $option['option'], $oDetails);
-
-					array_push($details['option'], $oDetails);
-				}
-			}
-
-			return $details;
-		}
-
-		return null;
+	static function formatPrice($price) {
+		return '$' . $price;
 	}
 
 	/**
@@ -1154,14 +1172,409 @@ class BookSchedule {
 		return false;
 	}
 
-	static function getPriceDetails() {
+	protected function toCurrency($price) {
+		$currencies = static::$setting->currencies;
+		if ($currencies) {
+			if (isset($price['currency'])) {
+				if ($price['currency'] == Currency::getBase()) {
+					return $price['price'];
+				} else {
+					return $cPrice = Currency::convert($price['price'], $price['currency'],
+							$this->currentCurrency);
+				}
+			}
+		} else {
+			return $price['price'];
+		}
+	}
+
+	/** Returns and caches item details
+	 */
+	protected function &getItemDetails($postId) {
+		if (!isset(static::$itemDetails[$postId])) {
+			if (($data = get_post_meta($postId, static::$coststimesMeta, true))) {
+				if ($data = json_decode($data, true)) {
+					static::$itemDetails[$postId] = $data;
+				}
+			}
+		}
+
+		return (isset(static::$itemDetails[$postId]) ? static::$itemDetails[$postId] : null);
+	}
+
+	static function compileDetails() {
 		if (get_the_ID()) {
 			$me = static::instance();
 
-			return $me->extractItemDetail(get_the_ID(), 'price');
+
+			if ($data = $me->getItemDetails(get_the_ID())) {
+				$iData = array();
+				$measurements = array(
+				);
+
+				// Set minimum measurement if we have a minimum booking limit
+				if (isset($data['bookingLimit'])
+						&& isset($data['bookingLimit']['minLength'])
+						&& $data['bookingLimit']['minLength']) {
+					$measurements['min'] = $data['bookingLimit']['minLength']
+							* static::$perDays[$data['bookingLimit']['minLengthUnit']]['l'];
+					$measurements['measurements'] = array(
+						$minMeasurement => array(
+							$data['bookingLimit']['minLength'],
+							$data['bookingLimit']['minLengthUnit']
+					));
+				}
+			
+				echo "Got data\n";
+				print_r($data);
+
+				$me->iterateDetails($data, $measurements, $iData);
+
+				echo "\n\n\nFinished interating, have data\n";
+				print_r($iData);
+
+				
+
+				// Go through and compile prices
+				if (isset($iData['options'])) {
+					foreach ($iData['options'] as &$option) {
+						if (isset($option['prices'])) {
+							$me->calculatePriceSummary($option,
+									(isset($measurements['measurements'])
+									? $measurements['measurements'] : null));
+						}
+					}
+				} else if (isset($iData['prices'])) {
+					$me->calculatePriceSummary($iData,
+								(isset($measurements['measurements'])
+								? $measurements['measurements'] : null));
+				}
+
+				echo "Resulting compiled array is \n";
+				print_r($iData);
+
+				return $iData;
+			}
 		}
-		
+
 		return null;
+	}
+
+	protected function calculatePriceSummary(&$data, &$measurements) {
+		echo "Running calculatePriceSummary for data: ";
+		print_r($data);
+
+		if (isset($data['prices'])) {
+			//echo "calculating option $data[label]\n";
+			$prices =& $data['prices'];
+			$priceText = '';
+			$basePrice = (isset($prices['base']) ? $prices['base'] : 0);
+			echo "base price is $basePrice\n";
+			if (isset($measurements) && count($measurements)) {
+				echo "Have measurements\n";
+				// Go through each measurement and calculate a price
+				$data['pSummary'] = array();
+				foreach ($measurements as $mLength => &$measurement) {
+					echo "Doing measurement of $mLength\n";
+					//echo "calculating option for $mLength\n";
+					// Start with the base price
+					$price = $basePrice;
+					foreach ($prices['pers'] as $pLength => &$levels) {
+						// Go through levels and calculate cost
+						$length = $mLength;
+						//echo "Have per of $pLength\n" . print_r($levels, 1);
+
+						foreach ($levels as $l => &$level) {
+							if ($l != 'u') {
+								if (isset($level['step']) && $level['step']) {
+									$sLength = min($l, $length);
+
+									$price += ($sLength/$l) * $level['price'];
+
+									$length -= $sLength;
+
+									if ($length <= 0) {
+										break;
+									}
+								} else {
+									if ($mLength <= $l) {
+										//echo "Found non-step level ($l) for $mLength\n";
+										$price += ($length/static::$perDays[$level['per']]['l']) * $level['price'];
+										break;
+									}
+								}
+								// Break if we have reached our limit
+								if ($mLength < $l) {
+									break;
+								}
+							} else {
+								//echo "reached non-upto $level[per]\n";
+								//echo "adding ($length / " . static::$perDays[$level['per']] . ") * $level[price]\n";
+								$price += ($length / static::$perDays[$level['per']]['l']) * $level['price'];
+							}
+						}
+					}
+
+					// Add to the measures
+					array_push($data['pSummary'], array(
+						'length' => $measurement[0],
+						'price' => round($price),
+					));
+				}
+
+				/*array_push($cPrices['options'], array(
+						'label' => $data['label'],
+						'prices' => $measurements
+				));*/
+			} else if ($basePrice) {
+				$data['pSummary'] = array(array(
+					'price' => $basePrice,
+				));
+			}
+		}
+	}
+
+	protected function iterateDetails(&$data, &$measurements, &$iData, $optionId = null, $cData = null) {
+		$baseCurrency = Currency::getBase();
+
+		//echo "iteratePrices received data and an optionId of $optionId\n";
+		//print_r($data);
+
+		if (is_null($cData)) {
+			$cData = array();
+		}
+
+		// Compile details
+		// Extract data from repeat
+		if (isset($data['detail'])) {
+			$cData['detail'] = $data['detail'];
+		}
+
+		$rData =& $data;
+		while (isset($rData['repeat'])) {
+			$rData =& $rData['repeat']['data'];
+
+			if (isset($rData['days'])) {
+				if (!isset($cData['numDays'])) {
+					$cData['numDays'] = 0;
+				}
+
+				if (!isset($cData['days'])) {
+					$cData['days'] = array();
+				}
+
+				foreach ($rData['days'] as &$day) {
+					$cData['numDays']++;
+					
+					$dateArray = array(
+						'day' => $cData['numDays'],
+					);
+
+					// Details, times
+					foreach (array('detail', 'time') as $d) {
+						if (isset($day['details'][$d])) {
+							$dateArray[$d] = $day['details'][$d];
+						}
+					}
+
+					array_push($cData['days'], $dateArray);
+				}
+			}
+		}
+
+		//echo "After repeat and other data extraction\n";
+		//print_r($cData);
+		
+		// Compile days/dates
+		if (isset($data['date'])) {
+			if (!isset($cData['numDays'])) {
+				$cData['numDays'] = 0;
+			}
+
+			if (!isset($cData['days'])) {
+				$cData['days'] = array();
+			}
+
+			foreach ($data['date'] as &$dateData) {
+				// Convert date into a workable date
+				$date = $dateData['date'];
+				if (isset($date['detailis']['days'])) {
+					foreach ($date['details']['days'] as &$day) {
+						$cData['numDays']++;
+						
+						$dateArray = array(
+							'date' => $date++
+						);
+
+						// Details, times
+						foreach (array('detail', 'time') as $d) {
+							if (isset($day['details'][$d])) {
+								$dateArray[$d] = $day['details'][$d];
+							}
+						}
+
+						array_push($cData['days'], $dateArray);
+					}
+				} else {
+					// Details, times
+					$dateArray = array(
+						'date' => $date
+					);
+
+					// Details, times
+					foreach (array('detail', 'time') as $d) {
+						if (isset($day['details'][$d])) {
+							$dateArray[$d] = $day['details'][$d];
+						}
+					}
+
+					array_push($cData['days'], $dateArray);
+
+					$cData['numDays']++;
+				}
+			}
+		}
+
+		// Merge down prices and convert into base currency
+		if (isset($data['price'])) {
+			//echo "have a price\n";
+			if (!isset($cData['prices'])) {
+				$cData['prices'] = array();
+			}
+
+			// Merge base cost
+			if (isset($data['price']['base'])) {
+				if (!isset($cData['prices']['base'])) {
+					$cData['prices']['base'] = 0;
+				}
+				foreach ($data['price']['base'] as &$price) {
+					// Check currency and convert to base currency
+					if (isset($price['currency'])
+							&& $price['currency'] != $baseCurrency) {
+						//echo "Converting $price[price] from $price[currency]\n";
+						$price['price'] = Currency::convert($price['price'],
+								$price['currency']);
+					}
+
+					$cData['prices']['base'] += $price['price'];
+				}
+			}
+
+			// Merge per cost
+			if (isset($data['price']['pers'])) {
+				//echo "Found pers\n";
+				if (!isset($measurements['measurements'])) {
+					$measurements['measurements'] = array();
+				}
+				if (!isset($cData['prices']['pers'])) {
+					$cData['prices']['pers'] = array();
+				}
+
+				// Iterate through per lengths
+				foreach ($data['price']['pers'] as $per => &$pers) {
+					// Add length to the measurements array if it is longer than the minimum
+					$perLength = static::$perDays[$per]['l'];
+					//echo "have per $per - $perLength\n";
+					if (!isset($measurements['min'])
+							|| $perLength > $measurements['min']
+							&& !in_array($perLength, $measurements['measurements'])) {
+						$measurements['measurements'][$perLength] = $price['per'];
+					}
+					
+					//
+					if (!isset($cData['prices']['pers'][$perLength])) {
+						$cData['prices']['pers'][$perLength] = array();
+					}
+
+					// Go through and merge/convert prices
+					foreach ($pers as &$price) {
+						$upto = ((isset($price['upto']) && $price['upto'])
+								? $price['upto'] * static::$perDays[$price['uptoUnit']]['l'] : 'u');
+						
+						// Convert to base currency
+						if (isset($price['currency'])
+								&& $price['currency'] != $baseCurrency) {
+							$price['price'] = Currency::convert($price['price'],
+									$price['currency']);
+						}
+
+						if (isset($prices['pers'][$perLength][$upto])) {
+							$cData['prices']['pers'][$perLength][$upto]['price'] += $price['price'];
+						} else {
+							$cData['prices']['pers'][$perLength][$upto] = $price;
+						}
+					}
+					
+					// Go through and sort pers
+					foreach (array_keys($cData['prices']['pers']) as $per) {
+						ksort($cData['prices']['pers'][$per], SORT_NATURAL);
+
+						// Add pers + 1 to measurement (need sorted before we can)
+						$lastUpto = 0;
+						foreach ($cData['prices']['pers'][$per] as &$price) {
+							$upto = ((isset($price['upto']) && $price['upto'])
+									? $price['upto'] * static::$perDays[$price['uptoUnit']]['l'] : '');
+						
+							// Add the upto value to the measurements array
+							if ($upto) {
+								if (!isset($measurements['min']) || $upto > $measurements['min']
+										&& !in_array($upto, $measurements['measurements'])) {
+									$measurements['measurements'][$upto] = array(
+										$price['upto'],
+										$price['uptoUnit']
+									);
+									$lastUpto = $upto;
+								}
+							} else if ($lastUpto && $price['uptoUnit']) {
+								/// @todo check maxMeasurement
+								$upto = $lastUpto
+									+ static::$perDays[$measurements['measurements'][$lastUpto][1]]['l'];
+								$measurements['measurements'][$upto] = array(
+									$measurements['measurements'][$lastUpto][0] + 1,
+									$measurements['measurements'][$lastUpto][1]
+								);
+								$lastUpto = 0;
+							}
+						}
+					}
+				}
+			}
+		}
+
+		//echo "finished price\n";
+
+
+		//echo 'After running through price data is ';
+		//print_r($iData);
+
+		// Find option prices
+		if (isset($data['option'])) {
+			if (!isset($iData['options'])) {
+				$iData['options'] = array();
+			}
+			foreach ($data['option'] as &$option) {
+				if (!isset($option['id'])) {
+					$option['id'] = uniqid();
+				}
+
+				//$iData['options'][$option['id']] = array_merge_recursive(array(
+				$oData = array_merge_recursive(array(
+						'label' => (isset($iData['label']) ? $iData['label'] . ', ' : '')
+						. $option['label']), $cData);
+
+				if (!$this->iterateDetails($option['option'], $measurements, $iData, $option['id'], $oData)) {
+				}
+			}
+			return $true;
+		} else {
+			if ($optionId) {
+				$iData['options'][$optionId] = $cData;
+			} else {
+				$iData = array_merge($iData, $cData);
+			}
+
+			return $false;
+		}
 	}
 
 	/**
@@ -1460,7 +1873,7 @@ class BookSchedule {
 		echo '<div id="' . $id . '" class="bsDetailsMeta"></div>';
 		echo '<script type="text/javascript">'
 				. 'jQuery(function() {bS.costs.init(\'' . $id . '\', \''
-				. admin_url('admin-ajax.php'). '\', \'' . $data
+				. admin_url('admin-ajax.php'). '\', \'' . str_replace('\'', '\\\'', $data)
 				. '\'' . ($currencies ? ', \''
 				. str_replace('\'', '\\\'', json_encode($currencies)) . '\'' : '')
 				. ');})</script>';
