@@ -2,10 +2,10 @@
 
 /**
  * Plugin Name: Book and Schedule
- * Plugin URI: http://www.weldce.com/book-schedule
+ * Plugin URI: http://www.meldce.com/book-schedule
  * Description: Plugin to allow users to book and schedule events
- * Author: Weld Computer Engineering
- * Author URI: http://www.weldce.com
+ * Author: Meld Computer Engineering
+ * Author URI: http://www.meldce.com
  * Version: 0.0.1
  */
 

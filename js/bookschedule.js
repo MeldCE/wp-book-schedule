@@ -1941,12 +1941,12 @@ var bS = (function() {
 						'toggleLabel': 'previous inquiries',
 					});
 
-					b['data']['booking']['submittedDiv'] = createLabelledFrame(b['bookings'], 'Show bookings', {
+					/*b['data']['booking']['submittedDiv'] = createLabelledFrame(b['bookings'], 'Show bookings', {
 						'class': 'postBookings',
 						'hideable': true,
 						'hide': true,
 						'toggleLabel': 'previous bookings',
-					});
+					});*/
 
 					// Build data and divs
 					var type;

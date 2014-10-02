@@ -670,11 +670,11 @@ class BookSchedule {
 					. 'href="https://github.com/weldstudio/wp-book-schedule/issues"'
 					. 'title="' . __('Issues', 'book_schedule') . '">'
 					. __('Issues', 'book_schedule') . '</a>';
-			$links[] = '<a href="http://gittip.weldce.com" title="'
+			$links[] = '<a href="http://gittip.meldce.com" title="'
 					. __('Gift a weekly amount', 'book_schedule')
 					. '" target="_blank">'
 					. __('Gift a weekly amount', 'book_schedule') . '</a>';
-			$links[] = '<a href="http://gift.weldce.com" title="'
+			$links[] = '<a href="http://gift.meldce.com" title="'
 					. __('Gift a little', 'book_schedule') . '" target="_blank">'
 					. __('Gift a little', 'book_schedule') . '</a>';
 		}
@@ -1613,7 +1613,7 @@ class BookSchedule {
 
 			echo '<div id="' . $id . '" class="bsBookingPopup">'
 					. '<div id="' . $id . 'bookingsButton" class="button">'
-					. __('My Bookings and Inquires', 'book_schedule') . '</div>'
+					. __('My Inquires', 'book_schedule') . '</div>'
 					. '<div class="bookingsFrame" id="' . $id . 'bookingsFrame">'
 					. '<div id="' . $id . 'message" class="message"></div>'
 					. '<div id="' . $id . 'bookings" class="bookings"></div>'

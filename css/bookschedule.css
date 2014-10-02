@@ -3,6 +3,11 @@ div.bsDetailsMeta h4 {
 	margin: 2px 0px;
 }
 
+div.bsDetailsMeta textarea {
+	width: 100%;
+	min-height: 200px;
+}
+
 div.bsBookingPopup {
 	position: fixed;
 	bottom: 0px;
@@ -26,14 +31,14 @@ div.bsBookingPopup div.button {
 }
 
 div.bsBookingPopup div.bookingsFrame {
-	height: 0px;
+	max-height: 0px;
 	text-align: left;
 	padding: 0px;
 	border-top-left-radius: 5px;
 	overflow: hidden;
-	-webkit-transition: height 0.8s;
-	-moz-transition: height 0.8s;
-	transition: height 0.8s;
+	-webkit-transition: max-height 1s ease 1s;
+	-moz-transition: max-height 1s ease 1s;
+	transition: max-height 1s ease 1s;
 }
 
 div.bsBookingPopup div.bookingsFrame > div {
@@ -97,7 +102,9 @@ div.bsBookingPopup a:hover {
 div.bsBookingPopup div.button:hover + div.bookingsFrame,
 div.bsBookingPopup div.bookingsFrame:hover,
 div.bsBookingPopup div.bookingsFrame.open {
-	height: auto;
 	max-height: 70%;
 	overflow-y: auto;
+	-webkit-transition: max-height 1s ease 0s;
+	-moz-transition: max-height 1s ease 0s;
+	transition: max-height 1s ease 0s;
 }
