@@ -3,6 +3,78 @@ div.bsDetailsMeta h4 {
 	margin: 2px 0px;
 }
 
+div.bsDetailsMeta textarea {
+	width: 100%;
+	min-height: 200px;
+}
+
+table.bs_calendar {
+	width: 100%;
+	border-collapse: separate;
+	border-spacing: 3px;
+}
+
+table.bs_calendar tbody tr {
+	transition: height 1s ease;
+	height: 20px;
+}
+
+table.bs_calendar tbody tr:hover {
+	height: 100px;
+	transition: height 1s;
+}
+
+table.bs_calendar td {
+	width: 16%;
+	vertical-align: top;
+	border: solid 1px #333;
+}
+
+table.bs_calendar td.fill {
+	color: #333;
+}
+
+table.bs_calendar td:not(.fill) {
+	background-color: #111;
+}
+
+table.bs_calendar td.av {
+	background-color: #010;
+}
+
+table.bs_calendar td.li {
+	background-color: #110;
+}
+
+table.bs_calendar td.bo {
+	background-color: #100;
+}
+
+table.bs_calendar td.we {
+	width: 10%;
+}
+
+table.bs_calendar td.fill {
+	color: #ddd;
+}
+
+@media (max-width: 400px) {
+	table.bs_calendar thead {
+		display: none;
+	}
+
+	table.bs_calendar tr {
+	}
+
+	table.bs_calendar td {
+		display: block;
+	}
+	table.bs_calendar td.fill {
+		display: none;
+	}
+}
+
+
 div.bsBookingPopup {
 	position: fixed;
 	bottom: 0px;
@@ -26,14 +98,14 @@ div.bsBookingPopup div.button {
 }
 
 div.bsBookingPopup div.bookingsFrame {
-	height: 0px;
+	max-height: 0px;
 	text-align: left;
 	padding: 0px;
 	border-top-left-radius: 5px;
 	overflow: hidden;
-	-webkit-transition: height 0.8s;
-	-moz-transition: height 0.8s;
-	transition: height 0.8s;
+	-webkit-transition: max-height 1s ease 1s;
+	-moz-transition: max-height 1s ease 1s;
+	transition: max-height 1s ease 1s;
 }
 
 div.bsBookingPopup div.bookingsFrame > div {
@@ -97,7 +169,9 @@ div.bsBookingPopup a:hover {
 div.bsBookingPopup div.button:hover + div.bookingsFrame,
 div.bsBookingPopup div.bookingsFrame:hover,
 div.bsBookingPopup div.bookingsFrame.open {
-	height: auto;
 	max-height: 70%;
 	overflow-y: auto;
+	-webkit-transition: max-height 1s ease 0s;
+	-moz-transition: max-height 1s ease 0s;
+	transition: max-height 1s ease 0s;
 }

@@ -751,8 +751,6 @@ class BookSchedule {
 	}
 
 	function setCurrencies($value) {
-			system("echo 'setting currencies received " . print_r($value, 1) . "' >> /tmp/currency.log");
-
 		if (is_array($value)) {
 			if (count($value)) {
 				if ($base = Currency::getBase()) {
@@ -761,7 +759,6 @@ class BookSchedule {
 					}
 				}
 			}
-			system("echo 'setting currencies " . print_r($value, 1) . "' >> /tmp/currency.log");
 			Currency::setSelectedCurrencies($value, false);
 		}
 
@@ -1089,6 +1086,93 @@ class BookSchedule {
 		exit;
 	}
 
+	static function ajaxTimes() {
+		$me = static::instance();
+
+		$error = false;
+		$form = false;
+
+		if (isset($_POST['bs_times']) && ($data =& $_POST['bs_times'])) {
+			// Get booking
+			if (!($booking = $me->getBookingsData($data['type'], 'draft', true))) {
+				$error = __('You do currently not have a ' . $data['type'],
+						'book_schedule');
+			} else if (!isset($booking['items']) || !count($booking['items'])) {
+				$error = __('You currently do not have any items in your '
+						. $data['type'], 'book_schedule');
+			}
+
+			if (!$error) {
+				if (is_user_logged_in()) {
+					$form = '<p>' . __('Confirming your ' . $data['type'] . ' is for:',
+							'book_schedule') . '</p><ul>';
+					foreach ($booking['items'] as &$item) {
+						$form .= '<li>' . get_the_title($item['id']) . '</li>';
+					}
+					$form .= '</ul>';
+				} else {
+					$error = __('You must be <a target="_blank" href="'
+							. wp_registration_url() . '">registered</a> and <a '
+							. 'target="_blank" href="' . wp_login_url() . '">logged in</a> '
+							. 'to submit a ' . $data['type'], 'book_schedule');
+				}
+			}
+		} else if (isset($_POST['bs_send']) && ($data =& $_POST['bs_send'])) {
+			// Get booking
+			if (!($booking = $me->getBookingsData($data['type'], 'draft'))) {
+				$error = __('You do currently not have a ' . $data['type'],
+						'book_schedule');
+			} else if (!isset($booking['items']) || !count($booking['items'])) {
+				$error = __('You currently do not have any items in your '
+						. $data['type'], 'book_schedule');
+			}
+
+			if (!$error) {
+				if (is_user_logged_in()) {
+					// Publish the booking
+					$booking['status'] = 'publish';
+					$me->updateBooking($booking);
+					if (isset($data['comment']) && $data['comment']) {
+						$user = wp_get_current_user();
+						$args = array(
+								'comment_post_ID' => $booking['ID'],
+								'comment_content' => $data['comment'],
+								'comment_approved' => 1,
+								'user_id' => $user->ID,
+						);
+						wp_insert_comment($args);
+					}
+					$success = __(ucwords($data['type']) . ' sent.', 'book_schedule');
+				} else {
+					$error = __('You must be <a target="_blank" href="'
+							. wp_registration_url() . '">registered</a> and <a '
+							. 'target="_blank" href="' . wp_login_url() . '">logged in</a> '
+							. 'to submit a ' . $data['type'], 'book_schedule');
+				}
+			}
+		} else {
+			$error = __('Invalid request. Please try again', 'book_schedule');
+		}
+		
+		// Return information
+		header('Content-Type: application/json');
+		if ($error) {
+			echo json_encode(array(
+					'error' => $error
+			));
+		} else if (isset($success)) {
+			echo json_encode(array(
+					'success' => $success
+			));
+		} else if (isset($form)) {
+			echo json_encode(array(
+					'form' => $form
+			));
+		}
+		
+		exit;
+	}
+
 	static function  formatEmail($post, $email) {
 		// Get items
 		$data = get_post_meta($post->ID, static::$bookingType, true);
@@ -1172,6 +1256,19 @@ class BookSchedule {
 		return false;
 	}
 
+	static function addToCalendar() {
+		if (($id = get_the_ID())) {
+			if (($type = get_post_type()) && ($type = static::types($type))) {
+				echo '<script>'
+					. 'bs.book.add(\'booking\', \'' . $id . '\');'
+					. '</script>';
+				return true;
+			}
+		}
+
+		return false;
+	}
+
 	protected function toCurrency($price) {
 		$currencies = static::$setting->currencies;
 		if ($currencies) {
@@ -1225,13 +1322,13 @@ class BookSchedule {
 					));
 				}
 			
-				echo "Got data\n";
-				print_r($data);
+				//echo "Got data\n";
+				//print_r($data);
 
 				$me->iterateDetails($data, $measurements, $iData);
 
-				echo "\n\n\nFinished interating, have data\n";
-				print_r($iData);
+				//echo "\n\n\nFinished interating, have data\n";
+				//print_r($iData);
 
 				
 
@@ -1250,8 +1347,8 @@ class BookSchedule {
 								? $measurements['measurements'] : null));
 				}
 
-				echo "Resulting compiled array is \n";
-				print_r($iData);
+				//echo "Resulting compiled array is \n";
+				//print_r($iData);
 
 				return $iData;
 			}
@@ -1261,21 +1358,21 @@ class BookSchedule {
 	}
 
 	protected function calculatePriceSummary(&$data, &$measurements) {
-		echo "Running calculatePriceSummary for data: ";
-		print_r($data);
+		//echo "Running calculatePriceSummary for data: ";
+		//print_r($data);
 
 		if (isset($data['prices'])) {
 			//echo "calculating option $data[label]\n";
 			$prices =& $data['prices'];
 			$priceText = '';
 			$basePrice = (isset($prices['base']) ? $prices['base'] : 0);
-			echo "base price is $basePrice\n";
+			//echo "base price is $basePrice\n";
 			if (isset($measurements) && count($measurements)) {
-				echo "Have measurements\n";
+				//echo "Have measurements\n";
 				// Go through each measurement and calculate a price
 				$data['pSummary'] = array();
 				foreach ($measurements as $mLength => &$measurement) {
-					echo "Doing measurement of $mLength\n";
+					//echo "Doing measurement of $mLength\n";
 					//echo "calculating option for $mLength\n";
 					// Start with the base price
 					$price = $basePrice;
@@ -1317,6 +1414,7 @@ class BookSchedule {
 
 					// Add to the measures
 					array_push($data['pSummary'], array(
+						'unit' => $this->getUnit($measurement[1], $measurement[0]),
 						'length' => $measurement[0],
 						'price' => round($price),
 					));
@@ -1612,6 +1710,8 @@ class BookSchedule {
 			$id = uniqid();
 
 			echo '<div id="' . $id . '" class="bsBookingPopup">'
+					. '<div id="' . $id . 'calendarButton" class="button">'
+					. __('My Calendar', 'book_schedule') . '</div>'
 					. '<div id="' . $id . 'bookingsButton" class="button">'
 					. __('My Bookings and Inquires', 'book_schedule') . '</div>'
 					. '<div class="bookingsFrame" id="' . $id . 'bookingsFrame">'
@@ -1870,12 +1970,23 @@ class BookSchedule {
 		$data = get_post_meta($post->ID, static::$coststimesMeta, true);
 		$currencies = $this->getCurrenciesArray();
 
+		// Capture a wp_editor
+		ob_start();
+		//wp_editor('%%data%%', '%%name%%', array(
+		wp_editor('', 'NAME', array(
+				'wpautop' => false
+				));
+		$editor = ob_get_clean();
+		$editor = str_replace("\n", '', $editor);
+		$editor = '';
+
 		echo '<div id="' . $id . '" class="bsDetailsMeta"></div>';
 		echo '<script type="text/javascript">'
 				. 'jQuery(function() {bS.costs.init(\'' . $id . '\', \''
 				. admin_url('admin-ajax.php'). '\', \'' . str_replace('\'', '\\\'', $data)
-				. '\'' . ($currencies ? ', \''
-				. str_replace('\'', '\\\'', json_encode($currencies)) . '\'' : '')
+				. '\', ' . ($currencies ? '\''
+				. str_replace('\'', '\\\'', json_encode($currencies)) . '\'' : 'null')
+				. ', \'' . str_replace('\'', '\\\'', $editor) . '\''
 				. ');})</script>';
 	}
 

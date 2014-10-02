@@ -39,6 +39,8 @@ if (!class_exists('BookSchedule')) {
 			add_action('wp_ajax_nopriv_bs_remove', array('BookSchedule', 'ajaxRemove'));
 			add_action('wp_ajax_bs_book', array('BookSchedule', 'ajaxBook'));
 			add_action('wp_ajax_nopriv_bs_book', array('BookSchedule', 'ajaxBook'));
+			add_action('wp_ajax_bs_times', array('BookSchedule', 'ajaxTimes'));
+			add_action('wp_ajax_nopriv_bs_times', array('BookSchedule', 'ajaxTimes'));
 
 			// Alert email hooks
 			add_action('draft_to_publish', array('BookSchedule', 'alertNewBooking'));

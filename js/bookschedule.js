@@ -452,7 +452,10 @@ var bS = (function() {
 			}
 			data.label.change(rFunc(ObjectBuilder.reparse, this, false, id));
 
-			data.pad = ObjectBuilder.createPad(id, obj, {}, (value ? value.option : null));
+			data.pad = ObjectBuilder.createPad(id, obj, {
+						multiple: true,
+						types: ['part-option', 'part-date', 'part-userTime', 'part-repeat', 'part-price', 'part-detail', 'part-included', 'part-location', 'part-limit', 'part-bookingLimit', 'part-link', 'part-exclusion'],
+					}, (value ? value.option : null));
 
 			obj.data(data);
 		},
@@ -517,7 +520,7 @@ var bS = (function() {
 
 			data.pad = ObjectBuilder.createPad(id, obj, {
 				multiple: true,
-				types: ['part-time', 'part-detail', 'part-days']
+				types: ['part-time', 'part-detail', 'part-days', 'part-location']
 			}, (value ? value.details : null));
 
 			obj.data(data);
@@ -551,7 +554,7 @@ var bS = (function() {
 
 			data.pad = ObjectBuilder.createPad(id, obj, {
 				multiple: true,
-				types: ['part-time', 'part-detail']
+				types: ['part-time', 'part-detail', 'part-location']
 			}, (value ? value.details : null));
 			
 			obj.data(data);
@@ -935,12 +938,21 @@ var bS = (function() {
 			return value;
 		},
 
-		drawDetail: function (obj, id, value) {
+		drawDetail: function (cid, obj, id, value) {
 			var z, data = {};
 
-			obj.html('<h4>Details</h4>'),
+			obj.html('<h4>Details</h4>');
 			
-			obj.append(data.input = $(document.createElement('textarea')));
+			if (c[cid] && c[cid].fullEditor) {
+				var editor = c[cid].fullEditor;
+				var eid = uniqid();
+				editor = editor.replace('NAME', eid);
+				obj.append(editor);
+				data.input = $('#' + eid);
+			} else {
+				obj.append(data.input = $(document.createElement('textarea')));
+			}
+
 			if (value) {
 				data.input.val(value.detail);
 			}
@@ -957,6 +969,48 @@ var bS = (function() {
 				type: 'detail',
 				detail: data.input.val()
 			};
+		},
+
+		drawIncluded: function (obj, id, value) {
+			var z, data = {};
+
+			obj.html('<h4>Included</h4>');
+			
+			obj.append(data.included = $(document.createElement('textarea')));
+
+			obj.append('<h4>Excluded</h4>');
+			
+			obj.append(data.excluded = $(document.createElement('textarea')));
+
+			if (value) {
+				data.included.val(value.included.join('\n'));
+				data.excluded.val(value.excluded.join('\n'));
+			}
+			data.included.change(rFunc(ObjectBuilder.reparse, this, false, id));
+			data.excluded.change(rFunc(ObjectBuilder.reparse, this, false, id));
+
+			obj.data(data);
+		},
+
+		parseIncluded: function (obj, id) {
+			var value, data = obj.data();
+		
+			/// @todo Look at changing to just the value rather than an array
+			var obj = {
+				type: 'included',
+				included: null,
+				excluded: null
+			};
+
+			if (val = data.included.val()) {
+				obj.included = val.split('\n');
+			}
+
+			if (val = data.excluded.val()) {
+				obj.excluded = val.split('\n');
+			}
+
+			return obj;
 		},
 
 		drawBookingLimit: function(obj, id, value) {
@@ -1156,6 +1210,7 @@ var bS = (function() {
 						case 'part':
 							switch (element) {
 								case 'detail':
+								case 'included':
 								case 'repeat':
 								case 'bookingLimit': /// Should only be one @todo
 								 obj[element] = costs.elements[type].elements[element].parse(el, id);
@@ -1233,6 +1288,7 @@ var bS = (function() {
 									}
 									break;
 								case 'bookingLimit': /// Should only be one @todo
+								case 'included':
 								case 'detail':
 								case 'repeat':
 									ObjectBuilder.createElement(id, pad, t, e, value[e]);
@@ -1462,6 +1518,11 @@ var bS = (function() {
 					label: 'Detail',
 					draw: costs.drawDetail,
 					parse: costs.parseDetail,
+				},
+				included: {
+					label: 'Includes',
+					draw: costs.drawIncluded,
+					parse: costs.parseIncluded,
 				},
 				limit: {
 					label: 'Size Limit',
@@ -1740,19 +1801,21 @@ var bS = (function() {
 			var i, z, y;
 
 			// Go through events and get future events
-			for (e in events) {
-				if (!events[e].start instanceof Date) {
-					event = new Date(events[e].start);
-					start = nextEvent.valueOf();
-				} else {
-					event = events[e].start;
-					start = nextEvent.valueOf();
-				}
+			if (events) {
+				for (e in events) {
+					if (!events[e].start instanceof Date) {
+						event = new Date(events[e].start);
+						start = nextEvent.valueOf();
+					} else {
+						event = events[e].start;
+						start = nextEvent.valueOf();
+					}
 
-				if (start > current) {
-					if (!nextEventStart || start < nextEventStart) {
-						nextEventStart = start;
-						nextEvent = event;
+					if (start > current) {
+						if (!nextEventStart || start < nextEventStart) {
+							nextEventStart = start;
+							nextEvent = event;
+						}
 					}
 				}
 			}
@@ -1767,20 +1830,44 @@ var bS = (function() {
 
 			// Create a prev/next
 			obj.append(z = $(document.createElement('div')));
+			var tbl;
+			obj.append(tbl = $(document.createElement('table')));
+			tbl.addClass('bs_calendar');
 
 			// Find the first sunday @todo option
-			var month = new Date(nextEvent);
+			var print = new Date(nextEvent);
 
-			month.setDate(1);
+			print.setDate(1);
+			var month = print.getMonth();
 
-			month = month - month.getDay();
+			print.setDate(print.getDate() - print.getDay());
 
 			// Start printing the calendar
 			// Print the header first
-			obj.append(z = $(document.createElement('div')));
+			tbl.append(x = $(document.createElement('thead')));
+			x.append(z = $(document.createElement('tr')));
 			for (i in calendar.days) {
-				z.append(y = $(document.createElement('div')));
+				z.append(y = $(document.createElement('th')));
 				y.html(calendar.days[i]);
+			}
+
+			// Print the days
+			tbl.append(x = $(document.createElement('tbody')));
+			while (print.getMonth() <= month) {
+				x.append(z = $(document.createElement('tr')));
+				var l = 0;
+				while (l <= print.getDay()) {
+					z.append(y = $(document.createElement('td')));
+					if (nextEvent.getMonth() != print.getMonth()) {
+						y.addClass('fill');
+					}
+					y.html(print.getDate());
+					l = print.getDay();
+					if (l === 0 || l === 6) {
+						y.addClass('we');
+					}
+					print.setDate(print.getDate() + 1);
+				}
 			}
 		}
 	}
@@ -1790,7 +1877,7 @@ var bS = (function() {
 		 * Handles the drawing and actions associated with the costs metabox.
 		 */
 		costs: {
-			init: function(id, url, value, currencies) {
+			init: function(id, url, value, currencies, fullEditor) {
 				console.log('Received value of ' + value);
 				
 				if (url) {
@@ -1807,6 +1894,10 @@ var bS = (function() {
 					if (currencies && ((currencies = JSON.parse(currencies)))) {
 						console.log(currencies);
 						c[id].currencies = currencies;
+					}
+
+					if (fullEditor) {
+						c[id].fullEditor = fullEditor;
 					}
 
 					var z, y;
@@ -1834,6 +1925,7 @@ var bS = (function() {
 
 					// Set the draw function for the price
 					costs.elements.part.elements.price.draw = rFunc(costs.drawPrice, this, true, id);
+					costs.elements.part.elements.detail.draw = rFunc(costs.drawDetail, this, true, id);
 
 					if (value) {
 						try {
@@ -1848,7 +1940,7 @@ var bS = (function() {
 							parse: costs.parsePad,
 							populate: costs.populatePad,
 							multiple: true,
-							types: ['part-option', 'part-date', 'part-userTime', 'part-repeat', 'part-price', 'part-detail', 'part-location', 'part-limit', 'part-bookingLimit', 'part-link', 'part-exclusion'],
+							types: ['part-option', 'part-date', 'part-userTime', 'part-repeat', 'part-price', 'part-detail', 'part-included', 'part-location', 'part-limit', 'part-bookingLimit', 'part-link', 'part-exclusion'],
 							}, value);
 				}
 			},
@@ -1938,15 +2030,17 @@ var bS = (function() {
 						'class': 'postBookings',
 						'hideable': true,
 						'hide': true,
-						'toggleLabel': 'previous inquiries',
+						'toggleLabel': 'inquiries',
 					});
 
 					b['data']['booking']['submittedDiv'] = createLabelledFrame(b['bookings'], 'Show bookings', {
 						'class': 'postBookings',
 						'hideable': true,
 						'hide': true,
-						'toggleLabel': 'previous bookings',
+						'toggleLabel': 'bookings',
 					});
+
+					calendar.drawMonth(b['data']['booking']['submittedDiv']);
 
 					// Build data and divs
 					var type;
@@ -1967,11 +2061,16 @@ var bS = (function() {
 			},
 
 			add: function(type, id) {
-				if (b && type == 'inquiry') {
-					// Send booking request to server
-					book.message('Adding item to your ' + type + '...', null, 2000);
-					var nonce = (new Date().getTime()).toString(16);
-					$.post(b['ajaxurl'] + '?action=bs_add', {'bs_add': {'type': type, 'item': { 'id': id}, 'nonce': nonce}}, rFunc(book.add, this, true, type, nonce));
+				if (b) {
+					switch (type) {
+						case 'inquiry':
+							// Send booking request to server
+							book.message('Adding item to your ' + type + '...', null, 2000);
+							var nonce = (new Date().getTime()).toString(16);
+							$.post(b['ajaxurl'] + '?action=bs_add', {'bs_add': {'type': type, 'item': { 'id': id}, 'nonce': nonce}}, rFunc(book.add, this, true, type, nonce));
+							break;
+						case 'booking':
+							
 				}
 			},
 
