@@ -1613,7 +1613,7 @@ class BookSchedule {
 
 			echo '<div id="' . $id . '" class="bsBookingPopup">'
 					. '<div id="' . $id . 'bookingsButton" class="button">'
-					. __('My Inquires', 'book_schedule') . '</div>'
+					. __('My Inquiries', 'book_schedule') . '</div>'
 					. '<div class="bookingsFrame" id="' . $id . 'bookingsFrame">'
 					. '<div id="' . $id . 'message" class="message"></div>'
 					. '<div id="' . $id . 'bookings" class="bookings"></div>'
