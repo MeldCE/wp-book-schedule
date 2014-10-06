@@ -1,6 +1,3 @@
-[submodule "lib/fullcalendar"]
-	path = lib/fullcalendar
-	url = https://github.com/arshaw/fullcalendar.git
 [submodule "lib/wp-settings"]
 	path = lib/wp-settings
 	url = https://github.com/weldstudio/wp-settings.git
